@@ -17,11 +17,10 @@ It is designed for split-screen and co-op games where multiple local players nee
 1. Copy `addons/dual_cursor_ui` into a Godot project.
 2. Enable **DualCursor UI** in Project Settings > Plugins.
 3. Open the **DualCursor UI** dock.
-4. Click **Create 2-Player Setup** in a blank scene. This creates one private region per player and one shared region assigned to both cursors.
-5. Click **Set Up Controller Actions**. This creates the project-level actions used when players press A/Cross.
-6. Click **Validate Current Scene**.
-7. Press Play. Move player 1 with controller 1's left stick and player 2 with controller 2's left stick.
-8. Connect `DualCursorButton.pressed_by_player(player_id, cursor)` to your game logic.
+4. Click **Create Playable 2-Player Scene** in a blank scene. This creates an editable mock scene with private regions, a shared region, buttons, cursors, interactions, and controller actions.
+5. Click **Validate Current Scene**.
+6. Press Play. Move player 1 with controller 1's left stick and player 2 with controller 2's left stick.
+7. Connect `DualCursorButton.pressed_by_player(player_id, cursor)` to your game logic.
 
 The fastest way to see the plugin working is to open:
 
@@ -54,9 +53,8 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 
 The plugin adds a **DualCursor UI** dock to the editor. It can:
 
-- Create a ready-to-edit two-player setup.
-- Set up default controller actions.
-- Open the demo scene.
+- Create a ready-to-edit playable two-player mock scene.
+- Set up default controller actions as part of scene creation.
 - Validate common scene setup mistakes.
 - Explain the next integration step for a new user.
 
