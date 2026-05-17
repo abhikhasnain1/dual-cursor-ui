@@ -135,6 +135,7 @@ func _create_playable_scene() -> void:
 	var demo_scene := load(DEMO_SCENE_PATH) as PackedScene
 	var demo := demo_scene.instantiate()
 	demo.name = "DualCursorUIDemo"
+	_make_scene_local(demo)
 	root.add_child(demo)
 	_set_owner_recursive(demo, root)
 	_prepare_demo_root(demo)
@@ -341,6 +342,11 @@ func _get_scene_root() -> Node:
 	if _plugin == null:
 		return null
 	return _plugin.get_editor_interface().get_edited_scene_root()
+
+func _make_scene_local(node: Node) -> void:
+	node.scene_file_path = ""
+	for child in node.get_children():
+		_make_scene_local(child)
 
 func _set_owner_recursive(node: Node, owner: Node) -> void:
 	node.owner = owner
