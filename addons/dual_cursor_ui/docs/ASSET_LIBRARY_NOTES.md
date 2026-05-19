@@ -23,3 +23,8 @@ Do not describe this addon as native multifocus. It is a custom local multiplaye
 - Run the created mock scene.
 - Include README, LICENSE, docs, and demo scene.
 - Use a square PNG/JPG icon for the Asset Library listing.
+- Use direct raw GitHub image URLs for the icon and screenshots:
+  `https://raw.githubusercontent.com/<user>/<repo>/<branch-or-tag>/asset-library/dual_cursor_icon.png`
+- Use matching raw screenshot URLs:
+  `https://raw.githubusercontent.com/<user>/<repo>/<branch-or-tag>/asset-library/5.png`
+- Confirm the download archive does not include `.godot`, `.gitignore`, `.gitattributes`, root README/LICENSE, or `asset-library`.

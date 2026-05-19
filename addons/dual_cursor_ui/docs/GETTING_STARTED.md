@@ -54,7 +54,7 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 
 ## Shared Controls
 
-Shared controls still need to be inside a movement region that every intended player can reach. The generated scene uses `SharedRegion`, and both cursors list it in `extra_region_node_paths`.
+Shared controls still need to be inside a movement region that every intended player can reach. The starter scene uses `SharedRegion`, and both cursors list it in `extra_region_node_paths`.
 
 If validation says a shared control is outside all cursor regions, move the control into the shared region or add that region to the cursor's `extra_region_node_paths`.
 

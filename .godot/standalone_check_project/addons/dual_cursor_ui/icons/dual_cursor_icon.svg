@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path fill="#4da3ff" d="M12 6l18 42 6-16 16-6z"/>
-  <path fill="#ffcf4d" d="M30 14l18 42 6-16 16-6z" transform="translate(-6 -2)"/>
-  <path fill="none" stroke="#1f2430" stroke-width="3" d="M12 6l18 42 6-16 16-6zM24 12l18 42 6-16 16-6z"/>
-</svg>

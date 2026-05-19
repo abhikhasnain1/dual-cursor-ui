@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+# Keep GitHub release archives focused on the installable addon.
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.godot export-ignore
+/asset-library export-ignore
+/LICENSE export-ignore
+/README.md export-ignore
