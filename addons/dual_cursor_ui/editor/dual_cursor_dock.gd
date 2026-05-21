@@ -146,7 +146,7 @@ func _create_playable_scene() -> void:
 	_show_results([
 		"[color=green]OK: Created a playable 2-player DualCursor scene.[/color]",
 		"Try next: Press Play and move both cursors with the left sticks.",
-		"Try next: Enter the private, exclusive shared, simultaneous shared, and dialogue panels.",
+		"Try next: Enter the private menu, private dialogue, exclusive shared, and simultaneous shared panels.",
 		"Try next: Press A/Cross on targets, press B/Circle to exit, and watch the event log."
 	])
 	_run_validation()

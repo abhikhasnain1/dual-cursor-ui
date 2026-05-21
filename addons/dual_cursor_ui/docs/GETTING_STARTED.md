@@ -23,7 +23,7 @@ Project > Project Settings > Plugins > DualCursor UI
 5. Save and run the scene with two controllers connected.
 6. Move each cursor with the matching controller's left stick.
 7. Press A/Cross to activate a button.
-8. Move into the small navigation panel in the shared region to switch from free cursor movement to controller navigation. Press B/Circle to exit it.
+8. Move into any private or shared panel to switch from free cursor movement to controller navigation. Press B/Circle to exit it.
 9. Use the **Use In Your Game** section in the dock for copyable GDScript examples.
 
 ## Connect A Button

@@ -54,7 +54,7 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 
 The plugin adds a **DualCursor UI** dock to the editor. It can:
 
-- Create a ready-to-edit playable two-player mock scene.
+- Create a ready-to-edit responsive two-player template scene.
 - Set up default controller actions as part of scene creation.
 - Validate common scene setup mistakes.
 - Explain the next integration step for a new user.

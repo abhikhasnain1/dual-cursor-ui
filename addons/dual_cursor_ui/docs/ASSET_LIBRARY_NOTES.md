@@ -18,9 +18,9 @@ Do not describe this addon as native multifocus. It is a custom local multiplaye
 - Confirm custom nodes appear in Add Node.
 - Confirm the DualCursor UI dock appears.
 - Run Create Playable 2-Player Scene in a blank scene.
-- Confirm both cursors can reach Shared Confirm.
+- Confirm both cursors can reach the shared exclusive and shared simultaneous panels.
 - Run Validate Current Scene.
-- Run the created mock scene.
+- Run the created responsive template scene.
 - Include README, LICENSE, docs, and demo scene.
 - Use a square PNG/JPG icon for the Asset Library listing.
 - Use direct raw GitHub image URLs for the icon and screenshots:
