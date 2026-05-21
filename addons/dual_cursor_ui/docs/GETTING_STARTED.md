@@ -18,12 +18,13 @@ Project > Project Settings > Plugins > DualCursor UI
 
 1. Create a new empty scene.
 2. Open the **DualCursor UI** dock.
-3. Click **Create Playable 2-Player Scene**. The dock creates a complete editable mock scene with Player1Region, Player2Region, SharedRegion, buttons, cursors, interactions, and controller actions.
+3. Click **Create Playable 2-Player Scene**. The dock creates a complete playable template with private menu panels, private dialogue choices, exclusive shared panels, simultaneous shared panels, cursors, logging, and controller actions.
 4. Click **Validate Current Scene**.
 5. Save and run the scene with two controllers connected.
 6. Move each cursor with the matching controller's left stick.
 7. Press A/Cross to activate a button.
-8. Use the **Use In Your Game** section in the dock for copyable GDScript examples.
+8. Move into the small navigation panel in the shared region to switch from free cursor movement to controller navigation. Press B/Circle to exit it.
+9. Use the **Use In Your Game** section in the dock for copyable GDScript examples.
 
 ## Connect A Button
 
@@ -64,6 +65,12 @@ If validation says a shared control is outside all cursor regions, move the cont
 - `extra_region_node_paths`: shared or extra regions that cursor may also enter.
 
 Keep player-owned controls inside that player's private region. Put shared controls inside a shared region assigned to both cursors.
+
+## Navigation Panels
+
+Use `DualCursorNavigationPanel` for dense menus or panels where pointing a free cursor at every option feels awkward. Add the panel to a reachable movement region, then assign its `navigation_targets` in the order players should move through them. Entering the panel automatically captures that player into controller navigation; `cancel_action` exits back to free cursor movement.
+
+For private panels, set `owner_player_id` to the allowed player. For shared panels that only one player can use at a time, set `occupancy_policy` to `FIRST_PLAYER_LOCKS`. For dialogue choices, use normal `Control` rows as `navigation_targets` and listen to `target_activated`.
 
 ## Overlaps
 

@@ -65,3 +65,26 @@ func _on_shared_confirmed(player_ids: PackedInt32Array) -> void:
 	print("Both players confirmed: %s" % [player_ids])
 	# Start the scene, commit the vote, or advance the shared choice here.
 ```
+
+## Controller Navigation Panel
+
+Use `DualCursorNavigationPanel` when a menu is better controlled as an ordered list than as a free cursor target.
+
+```gdscript
+extends Node
+
+@export var panel: DualCursorNavigationPanel
+@export var first_button: Button
+@export var second_button: Button
+
+func _ready() -> void:
+	panel.navigation_targets = [
+		panel.get_path_to(first_button),
+		panel.get_path_to(second_button)
+	]
+	panel.occupancy_policy = DualCursorNavigationPanel.OccupancyPolicy.FIRST_PLAYER_LOCKS
+	panel.target_activated.connect(_on_panel_target_activated)
+
+func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	print("Player %d activated %s" % [player_id + 1, target.name])
+```

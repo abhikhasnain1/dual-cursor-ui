@@ -17,7 +17,7 @@ It is designed for split-screen and co-op games where multiple local players nee
 1. Copy `addons/dual_cursor_ui` into a Godot project.
 2. Enable **DualCursor UI** in Project Settings > Plugins.
 3. Open the **DualCursor UI** dock.
-4. Click **Create Playable 2-Player Scene** in a blank scene. This creates an editable mock scene with private regions, a shared region, buttons, cursors, interactions, and controller actions.
+4. Click **Create Playable 2-Player Scene** in a blank scene. This creates a playable template with private menu panels, private dialogue choices, exclusive shared panels, simultaneous shared panels, cursors, logging, and controller actions.
 5. Click **Validate Current Scene**.
 6. Press Play. Move player 1 with controller 1's left stick and player 2 with controller 2's left stick.
 7. Connect `DualCursorButton.pressed_by_player(player_id, cursor)` to your game logic.
@@ -41,6 +41,7 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 - `DualCursorInteractable`: base `Control` target with ownership and shared policies.
 - `DualCursorButton`: button-like interactable with hover/select/deny feedback.
 - `DualCursorScrollArea`: `ScrollContainer` adapter for joystick scrolling.
+- `DualCursorNavigationPanel`: captures a cursor inside a panel and switches that player to ordered controller navigation, with private, exclusive shared, or simultaneous shared access.
 
 ## Shared Policies
 
@@ -86,8 +87,16 @@ DualCursor uses Godot Input Map actions to know when each player selects a contr
 
 - `interact_p1`: controller 1, A/Cross.
 - `interact_p2`: controller 2, A/Cross.
+- `cancel_p1`: controller 1, B/Circle.
+- `cancel_p2`: controller 2, B/Circle.
 
 You can change these later in Project Settings > Input Map.
+
+## Navigation Panels
+
+Use `DualCursorNavigationPanel` for dense menus where free cursor movement is too awkward. When a cursor enters the panel, that player is captured into virtual focus and navigates the configured `navigation_targets` with the controller. Press the cursor's `cancel_action` to return to free cursor movement.
+
+Set `owner_player_id` for player-only panels, or set `occupancy_policy` to `FIRST_PLAYER_LOCKS` for a shared panel that only one player can use at a time. The demo event log shows which player entered, exited, was denied, and activated each target first.
 
 ## Limitations
 

@@ -1,8 +1,10 @@
 @tool
 extends VBoxContainer
 
-const MANAGER_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_manager.gd")
-const CURSOR_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor.gd")
+const DualCursorInputSetup := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_input_setup.gd")
+const MANAGER_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_manager.gd"
+const CURSOR_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor.gd"
+const NAVIGATION_PANEL_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd"
 const DEMO_SCENE_PATH := "res://addons/dual_cursor_ui/demos/two_player_menu_demo.tscn"
 const CONNECT_BUTTON_EXAMPLE := """extends Node
 
@@ -81,7 +83,7 @@ func _build_ui() -> void:
 	var create_button := _button("Create Playable 2-Player Scene")
 	create_button.pressed.connect(_create_playable_scene)
 	body.add_child(create_button)
-	body.add_child(_paragraph("Creates a complete editable mock scene with private regions, a shared region, buttons, cursors, interactions, and controller actions."))
+	body.add_child(_paragraph("Creates a complete playable template with private menu panels, private dialogue choices, exclusive shared panels, simultaneous shared panels, cursors, logging, and controller actions. The template adapts to the current viewport and does not require a fixed project window size."))
 
 	body.add_child(_section("Validate Scene"))
 	var validate_button := _button("Validate Current Scene")
@@ -96,7 +98,7 @@ func _build_ui() -> void:
 	body.add_child(_results)
 
 	body.add_child(_section("Next Steps"))
-	body.add_child(_paragraph("Try this now: click Create Playable 2-Player Scene, press Play, move each cursor with the left stick, press A/Cross on your own button, then move both cursors into the Shared region and press A/Cross on Shared Confirm."))
+	body.add_child(_paragraph("Try this now: click Create Playable 2-Player Scene, press Play, move each cursor with the left stick, enter each panel type, press A/Cross on choices, and press B/Circle to return to free movement."))
 	body.add_child(_paragraph("When that works, connect DualCursorButton.pressed_by_player(player_id, cursor) to your game logic. Change owner_player_id to decide who can use a control: 0 for player 1, 1 for player 2, and -1 for shared. Keep private controls inside the matching player region; put shared controls inside a region assigned to both cursors."))
 
 	body.add_child(_section("Use In Your Game"))
@@ -127,12 +129,12 @@ func _create_playable_scene() -> void:
 		_show_results(["[color=red]Demo scene not found: %s[/color]" % DEMO_SCENE_PATH])
 		return
 
-	var existing := root.get_node_or_null("DualCursorUIDemo")
+	var existing: Node = root.get_node_or_null("DualCursorUIDemo")
 	if existing:
 		root.remove_child(existing)
 		existing.free()
 
-	var demo_scene := load(DEMO_SCENE_PATH) as PackedScene
+	var demo_scene: PackedScene = load(DEMO_SCENE_PATH) as PackedScene
 	var demo := demo_scene.instantiate()
 	demo.name = "DualCursorUIDemo"
 	_make_scene_local(demo)
@@ -144,20 +146,18 @@ func _create_playable_scene() -> void:
 	_show_results([
 		"[color=green]OK: Created a playable 2-player DualCursor scene.[/color]",
 		"Try next: Press Play and move both cursors with the left sticks.",
-		"Try next: Confirm each cursor stays in its own private region and can also enter the shared region.",
-		"Try next: Press A/Cross on each private button and Shared Confirm."
+		"Try next: Enter the private, exclusive shared, simultaneous shared, and dialogue panels.",
+		"Try next: Press A/Cross on targets, press B/Circle to exit, and watch the event log."
 	])
 	_run_validation()
 
 func _add_input_actions() -> void:
-	_add_action_if_missing("interact_p1", 0)
-	_add_action_if_missing("interact_p2", 1)
-	ProjectSettings.save()
+	DualCursorInputSetup.ensure_default_actions(true)
 	_show_results([
-		"[color=green]OK: Controller A/Cross actions are ready.[/color]",
-		"This creates the project-level actions DualCursor uses when each player presses A/Cross.",
+		"[color=green]OK: Controller A/Cross and B/Circle actions are ready.[/color]",
+		"This creates the project-level actions DualCursor uses for select and panel-navigation exit.",
 		"You usually only need to press this once per project.",
-		"`interact_p1` is controller 1, A/Cross. `interact_p2` is controller 2, A/Cross."
+		"`interact_p1` and `interact_p2` use A/Cross. `cancel_p1` and `cancel_p2` use B/Circle."
 	])
 
 func _run_validation() -> void:
@@ -170,8 +170,9 @@ func _run_validation() -> void:
 		return
 
 	var lines: Array[String] = []
-	var managers := _find_by_script(root, MANAGER_SCRIPT)
-	var cursors := _find_by_script(root, CURSOR_SCRIPT)
+	var managers := _find_by_script_path(root, MANAGER_SCRIPT_PATH)
+	var cursors := _find_by_script_path(root, CURSOR_SCRIPT_PATH)
+	var navigation_panels := _find_by_script_path(root, NAVIGATION_PANEL_SCRIPT_PATH)
 	var interactables := _find_interactables(root)
 
 	if managers.is_empty():
@@ -189,22 +190,32 @@ func _run_validation() -> void:
 	for cursor in cursors:
 		_validate_cursor(cursor, lines)
 
-	if interactables.is_empty():
+	if interactables.is_empty() and navigation_panels.is_empty():
 		lines.append("[color=red]Fix needed: No clickable DualCursor controls found.[/color]")
+	elif interactables.is_empty():
+		lines.append("[color=green]OK: Scene uses controller-navigation panels for interaction.[/color]")
 	else:
 		lines.append("[color=green]OK: %d clickable DualCursor control(s) found.[/color]" % interactables.size())
 		_validate_interactables(interactables, lines)
 		_validate_shared_reachability(cursors, interactables, lines)
 		_validate_private_boundaries(cursors, interactables, lines)
 
+	if not navigation_panels.is_empty():
+		lines.append("[color=green]OK: %d controller-navigation panel(s) found.[/color]" % navigation_panels.size())
+		_validate_navigation_panels(navigation_panels, lines)
+
 	if not InputMap.has_action("interact_p1"):
 		lines.append("[color=red]Fix needed: Missing controller action interact_p1. Click Create Playable 2-Player Scene.[/color]")
 	if not InputMap.has_action("interact_p2"):
 		lines.append("[color=red]Fix needed: Missing controller action interact_p2. Click Create Playable 2-Player Scene.[/color]")
-	if InputMap.has_action("interact_p1") and InputMap.has_action("interact_p2"):
-		lines.append("[color=green]OK: Controller A/Cross actions are ready.[/color]")
+	if not InputMap.has_action("cancel_p1"):
+		lines.append("[color=yellow]Warning: Missing controller action cancel_p1. Panel navigation needs a release action.[/color]")
+	if not InputMap.has_action("cancel_p2"):
+		lines.append("[color=yellow]Warning: Missing controller action cancel_p2. Panel navigation needs a release action.[/color]")
+	if InputMap.has_action("interact_p1") and InputMap.has_action("interact_p2") and InputMap.has_action("cancel_p1") and InputMap.has_action("cancel_p2"):
+		lines.append("[color=green]OK: Controller select and cancel actions are ready.[/color]")
 
-	if managers.size() == 1 and not cursors.is_empty() and not interactables.is_empty() and InputMap.has_action("interact_p1") and InputMap.has_action("interact_p2"):
+	if managers.size() == 1 and not cursors.is_empty() and (not interactables.is_empty() or not navigation_panels.is_empty()) and InputMap.has_action("interact_p1") and InputMap.has_action("interact_p2") and InputMap.has_action("cancel_p1") and InputMap.has_action("cancel_p2"):
 		lines.append("[color=green]Ready: Run the scene, then use the Use In Your Game examples below to connect DualCursor UI to your game logic.[/color]")
 
 	_show_results(lines)
@@ -230,6 +241,14 @@ func _validate_cursor(cursor: Node, lines: Array[String]) -> void:
 
 	if cursor is Sprite2D and cursor.texture == null:
 		lines.append("[color=yellow]Warning: %s has no texture. It will use a generated fallback cursor at runtime.[/color]" % cursor.name)
+
+	var interact_action := str(cursor.get("interact_action"))
+	if not interact_action.is_empty() and not InputMap.has_action(interact_action):
+		lines.append("[color=red]Fix needed: %s uses missing interact action %s.[/color]" % [cursor.name, interact_action])
+
+	var cancel_action := str(cursor.get("cancel_action"))
+	if not cancel_action.is_empty() and not InputMap.has_action(cancel_action):
+		lines.append("[color=yellow]Warning: %s uses missing cancel action %s. Panel navigation needs a release action.[/color]" % [cursor.name, cancel_action])
 
 func _validate_interactables(interactables: Array, lines: Array[String]) -> void:
 	for node in interactables:
@@ -279,6 +298,32 @@ func _validate_private_boundaries(cursors: Array, interactables: Array, lines: A
 			if _cursor_can_reach_control(cursor, interactable):
 				lines.append("[color=red]Fix needed: %s can reach %s, but that control belongs to player %d. Move the control or remove the overlapping cursor region.[/color]" % [cursor.name, interactable.name, owner_player_id + 1])
 
+func _validate_navigation_panels(navigation_panels: Array, lines: Array[String]) -> void:
+	for panel in navigation_panels:
+		if not (panel is Control):
+			continue
+		var target_paths: Array = panel.get("navigation_targets")
+		if target_paths.is_empty():
+			lines.append("[color=red]Fix needed: %s has no navigation_targets.[/color]" % panel.name)
+			continue
+		for target_path in target_paths:
+			if not (target_path is NodePath) or (target_path as NodePath).is_empty():
+				lines.append("[color=red]Fix needed: %s has an empty navigation target path.[/color]" % panel.name)
+				continue
+			_validate_navigation_target(panel, target_path, lines)
+
+func _validate_navigation_target(panel: Control, target_path: NodePath, lines: Array[String]) -> void:
+	var node: Node = panel.get_node_or_null(target_path)
+	if node == null or not (node is Control):
+		lines.append("[color=red]Fix needed: %s has an invalid navigation target: %s.[/color]" % [panel.name, target_path])
+		return
+
+	var control: Control = node as Control
+	if control.get_global_rect().size == Vector2.ZERO:
+		lines.append("[color=yellow]Warning: %s navigation target %s has a zero-sized rect.[/color]" % [panel.name, control.name])
+	elif not control.is_visible_in_tree():
+		lines.append("[color=yellow]Warning: %s navigation target %s is hidden.[/color]" % [panel.name, control.name])
+
 func _cursor_can_reach_control(cursor: Node, control: Control) -> bool:
 	for region in _get_cursor_regions(cursor):
 		if region.get_global_rect().intersects(control.get_global_rect()):
@@ -288,7 +333,7 @@ func _cursor_can_reach_control(cursor: Node, control: Control) -> bool:
 func _get_cursor_regions(cursor: Node) -> Array[Control]:
 	var regions: Array[Control] = []
 	var region_path: NodePath = cursor.get("region_node_path")
-	var primary := cursor.get_node_or_null(region_path) as Control
+	var primary: Control = cursor.get_node_or_null(region_path) as Control
 	if primary:
 		regions.append(primary)
 
@@ -296,32 +341,17 @@ func _get_cursor_regions(cursor: Node) -> Array[Control]:
 	for extra_path in extra_paths:
 		if not (extra_path is NodePath):
 			continue
-		var extra := cursor.get_node_or_null(extra_path) as Control
+		var extra: Control = cursor.get_node_or_null(extra_path) as Control
 		if extra and not regions.has(extra):
 			regions.append(extra)
 
 	return regions
 
-func _add_action_if_missing(action_name: String, device: int) -> void:
-	if not InputMap.has_action(action_name):
-		InputMap.add_action(action_name, 0.2)
-
-	var has_event := false
-	for event in InputMap.action_get_events(action_name):
-		if event is InputEventJoypadButton and event.device == device and event.button_index == JOY_BUTTON_A:
-			has_event = true
-			break
-
-	if not has_event:
-		var joy_event := InputEventJoypadButton.new()
-		joy_event.device = device
-		joy_event.button_index = JOY_BUTTON_A
-		InputMap.action_add_event(action_name, joy_event)
-
-func _find_by_script(root: Node, script: Script) -> Array:
+func _find_by_script_path(root: Node, script_path: String) -> Array:
 	var matches := []
 	for node in _walk(root):
-		if node.get_script() == script:
+		var script: Script = node.get_script() as Script
+		if script and script.resource_path == script_path:
 			matches.append(node)
 	return matches
 
@@ -355,10 +385,11 @@ func _set_owner_recursive(node: Node, owner: Node) -> void:
 
 func _prepare_demo_root(demo: Node) -> void:
 	if demo is Control:
-		var control := demo as Control
+		var control: Control = demo as Control
 		control.position = Vector2.ZERO
-		control.size = Vector2(1100, 800)
-		control.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		control.set_anchors_preset(Control.PRESET_FULL_RECT)
+		control.set_offsets_preset(Control.PRESET_FULL_RECT)
+		control.size = control.get_viewport_rect().size
 
 func _show_results(lines: Array) -> void:
 	if _results == null:
