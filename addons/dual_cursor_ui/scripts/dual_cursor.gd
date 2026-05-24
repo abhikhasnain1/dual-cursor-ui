@@ -13,6 +13,7 @@ extends Sprite2D
 @export var movement_deadzone: float = 0.05
 @export var scroll_deadzone: float = 0.1
 @export var fallback_cursor_color: Color = Color(0.2, 0.72, 1.0, 1.0)
+@export var center_on_primary_region_at_ready: bool = true
 
 var last_hovered: Control = null
 var _movement_region_rects: Array[Rect2] = []
@@ -20,14 +21,18 @@ var _manager = null
 var _missing_action_warnings: Dictionary = {}
 
 func _ready() -> void:
+	DualCursorInputSetup.ensure_default_actions(false)
+
 	if texture == null:
 		texture = _create_fallback_texture(fallback_cursor_color)
 
 	_movement_region_rects = _resolve_region_rects()
 	if _movement_region_rects.is_empty():
 		push_warning("%s has no valid movement regions." % name)
-	else:
+	elif center_on_primary_region_at_ready:
 		global_position = _movement_region_rects[0].position + _movement_region_rects[0].size * 0.5
+	else:
+		global_position = _constrain_to_regions(global_position)
 
 	_manager = _resolve_manager()
 

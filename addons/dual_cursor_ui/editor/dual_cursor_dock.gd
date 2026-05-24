@@ -450,7 +450,22 @@ func _ensure_runtime_cursor(rig: Control, scene_root: Node, manager: Node, trave
 	cursor.set("interact_action", interact_action)
 	cursor.set("cancel_action", cancel_action)
 	cursor.set("fallback_cursor_color", color)
+	cursor.set("center_on_primary_region_at_ready", false)
+	_place_cursor_near_panel(cursor, panel, player_id)
 	return created
+
+func _place_cursor_near_panel(cursor: Sprite2D, panel: Control, player_id: int) -> void:
+	var panel_rect: Rect2 = panel.get_global_rect()
+	var viewport_size: Vector2 = panel.get_viewport_rect().size
+	var player_offset: float = float(player_id) * 36.0
+	var start_position: Vector2 = panel_rect.position + Vector2(-48.0, 24.0 + player_offset)
+
+	if start_position.x < 8.0:
+		start_position.x = panel_rect.position.x + 24.0 + player_offset
+
+	start_position.x = clamp(start_position.x, 8.0, max(8.0, viewport_size.x - 8.0))
+	start_position.y = clamp(start_position.y, 8.0, max(8.0, viewport_size.y - 8.0))
+	cursor.global_position = start_position
 
 func _find_cursor_by_player(root: Node, player_id: int) -> Sprite2D:
 	for node in _find_by_script_path(root, CURSOR_SCRIPT_PATH):
