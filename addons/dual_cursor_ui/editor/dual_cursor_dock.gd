@@ -3,7 +3,9 @@ extends VBoxContainer
 
 const DualCursorInputSetup := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_input_setup.gd")
 const MANAGER_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_manager.gd"
+const MANAGER_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_manager.gd")
 const CURSOR_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor.gd"
+const CURSOR_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor.gd")
 const NAVIGATION_PANEL_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd"
 const NAVIGATION_PANEL_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd")
 const DEMO_SCENE_PATH := "res://addons/dual_cursor_ui/demos/two_player_menu_demo.tscn"
@@ -93,7 +95,7 @@ func _build_ui() -> void:
 	body.add_child(_paragraph("Creates a complete playable template with private menu panels, private dialogue choices, exclusive shared panels, simultaneous shared panels, cursors, logging, and controller actions. The template adapts to the current viewport and does not require a fixed project window size."))
 
 	body.add_child(_section("Panel Builder"))
-	body.add_child(_paragraph("Select one of your own Control panels, choose an access preset, then configure it for controller navigation. The builder does not overwrite custom scripts; use a plain Control or an existing DualCursorNavigationPanel."))
+	body.add_child(_paragraph("Select one of your own Control panels, choose an access preset, then configure it for controller navigation. The builder also adds a lightweight two-player cursor runtime if the scene does not already have one."))
 	_selected_panel_status = _paragraph("Selected panel: none")
 	body.add_child(_selected_panel_status)
 	_selected_target_status = _paragraph("Detected targets: 0")
@@ -234,13 +236,16 @@ func _setup_selected_panel() -> void:
 	]))
 
 	DualCursorInputSetup.ensure_default_actions(true)
+	var rig_messages: Array[String] = _ensure_cursor_runtime(panel)
 	_mark_scene_unsaved()
 	_refresh_selected_panel_info()
-	_show_results([
+	var result_lines: Array[String] = [
 		"[color=green]OK: Configured %s as %s.[/color]" % [panel.name, _preset_name(preset_id)],
 		"Navigation targets: %d" % target_paths.size(),
 		"Run Validate Selected Panel, then run the scene and move a cursor into this panel."
-	])
+	]
+	result_lines.append_array(rig_messages)
+	_show_results(result_lines)
 
 func _validate_selected_panel() -> void:
 	var panel: Control = _get_selected_control()
@@ -329,6 +334,8 @@ func _collect_target_controls(root_panel: Control, node: Node, results: Array[Co
 func _is_usable_panel_target(root_panel: Control, control: Control, buttons_only: bool) -> bool:
 	if control == root_panel:
 		return false
+	if control.name == "DualCursorRuntime":
+		return false
 	if not control.visible:
 		return false
 	if buttons_only:
@@ -378,6 +385,84 @@ func _mark_scene_unsaved() -> void:
 	var editor_interface := _plugin.get_editor_interface()
 	if editor_interface and editor_interface.has_method("mark_scene_as_unsaved"):
 		editor_interface.mark_scene_as_unsaved()
+
+func _ensure_cursor_runtime(panel: Control) -> Array[String]:
+	var lines: Array[String] = []
+	var root := _get_scene_root()
+	if root == null:
+		return lines
+
+	var manager: Node = _find_first_by_script_path(root, MANAGER_SCRIPT_PATH)
+	var rig: Control = root.get_node_or_null("DualCursorRuntime") as Control
+	if rig == null:
+		rig = Control.new()
+		rig.name = "DualCursorRuntime"
+		rig.set_anchors_preset(Control.PRESET_FULL_RECT)
+		rig.set_offsets_preset(Control.PRESET_FULL_RECT)
+		rig.size = panel.get_viewport_rect().size
+		rig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(rig)
+		_set_owner_recursive(rig, root)
+		lines.append("Added DualCursorRuntime with a full-viewport movement region.")
+
+	var travel_region: ColorRect = rig.get_node_or_null("CursorTravelRegion") as ColorRect
+	if travel_region == null:
+		travel_region = ColorRect.new()
+		travel_region.name = "CursorTravelRegion"
+		travel_region.color = Color(0, 0, 0, 0)
+		travel_region.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		travel_region.set_anchors_preset(Control.PRESET_FULL_RECT)
+		travel_region.set_offsets_preset(Control.PRESET_FULL_RECT)
+		travel_region.size = panel.get_viewport_rect().size
+		rig.add_child(travel_region)
+		travel_region.owner = root
+
+	if manager == null:
+		manager = Node.new()
+		manager.name = "DualCursorManager"
+		manager.set_script(MANAGER_SCRIPT)
+		rig.add_child(manager)
+		manager.owner = root
+		lines.append("Added DualCursorManager.")
+
+	if _ensure_runtime_cursor(rig, root, manager, travel_region, "Cursor1", 0, "interact_p1", "cancel_p1", Color(0.2, 0.72, 1.0, 1.0), panel):
+		lines.append("Added Player 1 cursor.")
+	if _ensure_runtime_cursor(rig, root, manager, travel_region, "Cursor2", 1, "interact_p2", "cancel_p2", Color(1.0, 0.45, 0.25, 1.0), panel):
+		lines.append("Added Player 2 cursor.")
+	return lines
+
+func _ensure_runtime_cursor(rig: Control, scene_root: Node, manager: Node, travel_region: Control, cursor_name: String, player_id: int, interact_action: String, cancel_action: String, color: Color, panel: Control) -> bool:
+	var cursor: Sprite2D = _find_cursor_by_player(scene_root, player_id)
+	var created := false
+	if cursor == null:
+		cursor = Sprite2D.new()
+		cursor.name = cursor_name
+		cursor.z_index = 100
+		cursor.set_script(CURSOR_SCRIPT)
+		rig.add_child(cursor)
+		cursor.owner = scene_root
+		created = true
+
+	cursor.set("player_id", player_id)
+	cursor.set("manager_path", cursor.get_path_to(manager))
+	cursor.set("region_node_path", cursor.get_path_to(travel_region))
+	cursor.set("extra_region_node_paths", [cursor.get_path_to(panel)])
+	cursor.set("interact_action", interact_action)
+	cursor.set("cancel_action", cancel_action)
+	cursor.set("fallback_cursor_color", color)
+	return created
+
+func _find_cursor_by_player(root: Node, player_id: int) -> Sprite2D:
+	for node in _find_by_script_path(root, CURSOR_SCRIPT_PATH):
+		if int(node.get("player_id")) == player_id and node is Sprite2D:
+			return node as Sprite2D
+	return null
+
+func _find_first_by_script_path(root: Node, script_path: String) -> Node:
+	var nodes := _find_by_script_path(root, script_path)
+	if nodes.is_empty():
+		return null
+	return nodes[0]
 
 func _run_validation() -> void:
 	if _results == null:

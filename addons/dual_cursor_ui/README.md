@@ -102,7 +102,7 @@ Set `owner_player_id` for player-only panels, or set `occupancy_policy` to `FIRS
 
 ## Panel Builder
 
-Select a `Control` node in your scene, choose one of the four access presets in the dock, then click **Setup Selected Panel**. The dock assigns `DualCursorNavigationPanel`, auto-detects child buttons as navigation targets, applies the preset, and validates the panel. The builder uses Player 1 Private, Player 2 Private, Shared Exclusive, and Shared Simultaneous presets.
+Select a `Control` node in your scene, choose one of the four access presets in the dock, then click **Setup Selected Panel**. The dock assigns `DualCursorNavigationPanel`, auto-detects child buttons as navigation targets, applies the preset, and adds a lightweight two-player cursor runtime if the scene does not already have one. The builder uses Player 1 Private, Player 2 Private, Shared Exclusive, and Shared Simultaneous presets.
 
 ## Limitations
 

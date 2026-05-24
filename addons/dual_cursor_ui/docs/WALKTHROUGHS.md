@@ -93,6 +93,6 @@ func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -
 
 1. Select a plain `Control` panel that contains child `Button` nodes.
 2. In the DualCursor UI dock, choose the matching Panel Builder access preset.
-3. Click **Setup Selected Panel**.
+3. Click **Setup Selected Panel**. The builder also adds the two-player cursor runtime if the scene needs one.
 4. Click **Validate Selected Panel**.
 5. Connect `DualCursorNavigationPanel.target_activated(player_id, target, cursor)` to game logic.

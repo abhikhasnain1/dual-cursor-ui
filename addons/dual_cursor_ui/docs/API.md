@@ -63,4 +63,4 @@ Entry denial is available through manager signal `navigation_denied(player_id, p
 
 ## Panel Builder
 
-The editor dock can configure a selected `Control` as a `DualCursorNavigationPanel`. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets default selection colors, and validates the selected panel. It does not overwrite unrelated custom scripts.
+The editor dock can configure a selected `Control` as a `DualCursorNavigationPanel`. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets default selection colors, adds a lightweight two-player cursor runtime when needed, and validates the selected panel. It does not overwrite unrelated custom scripts.

@@ -78,7 +78,7 @@ For private panels, set `owner_player_id` to the allowed player. For shared pane
 1. Build a normal Godot `Control` panel with child buttons.
 2. Select the panel node in the Scene dock.
 3. In the DualCursor UI dock, choose a Panel Builder preset: Player 1 Private, Player 2 Private, Shared Exclusive, or Shared Simultaneous.
-4. Click **Setup Selected Panel**.
+4. Click **Setup Selected Panel**. The builder also adds two cursors and a manager if the scene does not already have them.
 5. Click **Validate Selected Panel**.
 6. Run the scene, move a cursor into the panel, navigate with the left stick, activate with A/Cross, and exit with B/Circle.
 
