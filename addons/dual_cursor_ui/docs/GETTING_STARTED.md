@@ -29,7 +29,7 @@ Project > Project Settings > Plugins > DualCursor UI
 
 ## Connect A Button
 
-Select a `DualCursorButton`, open the Node dock, and connect:
+For standalone `DualCursorButton` nodes, open the Node dock and connect:
 
 ```text
 pressed_by_player(player_id, cursor)
@@ -39,7 +39,7 @@ Example handler:
 
 ```gdscript
 func _on_pressed_by_player(player_id: int, cursor: Node) -> void:
-	print("Player %d selected this button." % player_id)
+	print("Player %d selected this button." % [player_id + 1])
 ```
 
 More examples are in:
@@ -73,6 +73,24 @@ Use `DualCursorNavigationPanel` for dense menus or panels where pointing a free 
 
 For private panels, set `owner_player_id` to the allowed player. For shared panels that only one player can use at a time, set `occupancy_policy` to `FIRST_PLAYER_LOCKS`. For dialogue choices, use normal `Control` rows as `navigation_targets` and listen to `target_activated`.
 
+Use `target_activated` for buttons inside navigation panels:
+
+```gdscript
+@export var panel: DualCursorNavigationPanel
+
+func _ready() -> void:
+	panel.target_activated.connect(_on_panel_target_activated)
+
+func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	match str(target.get_meta("action", target.name)):
+		"inventory":
+			open_inventory(player_id)
+		"skill":
+			open_skill_tree(player_id)
+		"ready":
+			set_ready(player_id)
+```
+
 ## Convert Your Own Menu Panel
 
 1. Build a normal Godot `Control` panel with child buttons.
@@ -83,6 +101,46 @@ For private panels, set `owner_player_id` to the allowed player. For shared pane
 6. Run the scene, move a cursor into the panel, navigate with the left stick, activate with A/Cross, and exit with B/Circle.
 
 Panel Builder will not overwrite a custom script. Use a plain `Control` node or an existing `DualCursorNavigationPanel`.
+
+## DualCursorRuntime
+
+Panel Builder adds `DualCursorRuntime` when the scene needs a playable two-player setup. It contains:
+
+- `DualCursorManager`: routes hover, panel entry, activation, denial, and navigation.
+- `CursorTravelRegion`: invisible full-viewport movement area.
+- `Cursor1` and `Cursor2`: controller-driven cursors.
+
+You can keep this runtime in real game scenes. Replace it only if your game has custom cursor spawning, split-screen-specific cursor regions, or a different input architecture.
+
+## Populate Dialogue Choices
+
+Dialogue choices can be normal `Button` nodes or custom `Control` rows. Add them under a container, store a choice id in metadata, and append each path to the panel's `navigation_targets`.
+
+```gdscript
+@export var dialogue_panel: DualCursorNavigationPanel
+@export var choices_container: VBoxContainer
+
+func show_dialogue_choices(player_id: int, choices: Array[Dictionary]) -> void:
+	for child in choices_container.get_children():
+		child.queue_free()
+
+	dialogue_panel.navigation_targets.clear()
+	dialogue_panel.owner_player_id = player_id
+
+	for choice in choices:
+		var button := Button.new()
+		button.text = str(choice["text"])
+		button.set_meta("choice_id", choice["id"])
+		choices_container.add_child(button)
+		dialogue_panel.navigation_targets.append(dialogue_panel.get_path_to(button))
+
+func _ready() -> void:
+	dialogue_panel.target_activated.connect(_on_dialogue_choice_selected)
+
+func _on_dialogue_choice_selected(player_id: int, target: Control, cursor: Node) -> void:
+	var choice_id := str(target.get_meta("choice_id", ""))
+	choose_dialogue_option(player_id, choice_id)
+```
 
 ## Overlaps
 

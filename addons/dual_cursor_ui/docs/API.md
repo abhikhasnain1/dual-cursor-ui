@@ -19,6 +19,7 @@ Visible gamepad cursor. Export `player_id`, `region_node_path`, `extra_region_no
 
 - `region_node_path`: primary private movement region.
 - `extra_region_node_paths`: additional movement regions, commonly shared UI spaces.
+- `center_on_primary_region_at_ready`: when true, the cursor starts at the center of its primary movement region. Panel Builder disables this for generated cursors so they can start near the configured panel.
 
 ## DualCursorInteractable
 
@@ -63,4 +64,6 @@ Entry denial is available through manager signal `navigation_denied(player_id, p
 
 ## Panel Builder
 
-The editor dock can configure a selected `Control` as a `DualCursorNavigationPanel`. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets default selection colors, adds a lightweight two-player cursor runtime when needed, and validates the selected panel. It does not overwrite unrelated custom scripts.
+The editor dock can configure a selected `Control` as a `DualCursorNavigationPanel`. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets default selection colors, adds a lightweight two-player cursor runtime when needed, persists default controller actions, and validates the selected panel. It does not overwrite unrelated custom scripts.
+
+The generated `DualCursorRuntime` contains `DualCursorManager`, an invisible `CursorTravelRegion`, and two `DualCursor` nodes. It is safe to keep in game scenes and customize later.

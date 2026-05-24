@@ -57,6 +57,48 @@ func _on_shared_confirmed(player_ids: PackedInt32Array) -> void:
 	print("Both players confirmed: %s" % [player_ids])
 	# Start the scene, commit the vote, or advance the shared choice here.
 """
+const PANEL_ACTION_EXAMPLE := """extends Node
+
+@export var panel: DualCursorNavigationPanel
+
+func _ready() -> void:
+	panel.target_activated.connect(_on_panel_target_activated)
+
+func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	match str(target.get_meta("action", target.name)):
+		"inventory":
+			open_inventory(player_id)
+		"skill":
+			open_skill_tree(player_id)
+		"ready":
+			set_ready(player_id)
+"""
+const DIALOGUE_CHOICES_EXAMPLE := """extends Node
+
+@export var dialogue_panel: DualCursorNavigationPanel
+@export var choices_container: VBoxContainer
+
+func _ready() -> void:
+	dialogue_panel.target_activated.connect(_on_dialogue_choice_selected)
+
+func show_dialogue_choices(player_id: int, choices: Array[Dictionary]) -> void:
+	for child in choices_container.get_children():
+		child.queue_free()
+
+	dialogue_panel.navigation_targets.clear()
+	dialogue_panel.owner_player_id = player_id
+
+	for choice in choices:
+		var button := Button.new()
+		button.text = str(choice["text"])
+		button.set_meta("choice_id", choice["id"])
+		choices_container.add_child(button)
+		dialogue_panel.navigation_targets.append(dialogue_panel.get_path_to(button))
+
+func _on_dialogue_choice_selected(player_id: int, target: Control, cursor: Node) -> void:
+	var choice_id := str(target.get_meta("choice_id", ""))
+	print("Player %d chose %s" % [player_id + 1, choice_id])
+"""
 
 var _plugin: EditorPlugin
 var _results: RichTextLabel
@@ -134,11 +176,21 @@ func _build_ui() -> void:
 	body.add_child(_results)
 
 	body.add_child(_section("Next Steps"))
-	body.add_child(_paragraph("Try this now: click Create Playable 2-Player Scene, press Play, move each cursor with the left stick, enter each panel type, press A/Cross on choices, and press B/Circle to return to free movement."))
-	body.add_child(_paragraph("When that works, connect DualCursorButton.pressed_by_player(player_id, cursor) to your game logic. Change owner_player_id to decide who can use a control: 0 for player 1, 1 for player 2, and -1 for shared. Keep private controls inside the matching player region; put shared controls inside a region assigned to both cursors."))
+	body.add_child(_paragraph("Use Create Playable 2-Player Scene to test the full template, or select your own Control panel and run Panel Builder. Press A/Cross to activate and B/Circle to leave controller-navigation panels."))
+	body.add_child(_paragraph("For built panels, connect DualCursorNavigationPanel.target_activated(player_id, target, cursor). For standalone DualCursorButton nodes, connect pressed_by_player(player_id, cursor). Set owner_player_id to 0 for player 1, 1 for player 2, and -1 for shared."))
 
 	body.add_child(_section("Use In Your Game"))
 	body.add_child(_paragraph("These examples are safe to paste into a normal game script. Assign the exported nodes in the Inspector, then connect the plugin's player-aware signals to your own game state."))
+	body.add_child(_guide_panel(
+		"Connect Panel Buttons",
+		"Use target_activated for buttons inside Panel Builder menus because it reports both the player and selected target.",
+		PANEL_ACTION_EXAMPLE
+	))
+	body.add_child(_guide_panel(
+		"Populate Dialogue Choices",
+		"Create normal Button or Control rows, append them to navigation_targets, and store your dialogue choice id in metadata.",
+		DIALOGUE_CHOICES_EXAMPLE
+	))
 	body.add_child(_guide_panel(
 		"Connect Buttons to Game Logic",
 		"Use pressed_by_player when a DualCursorButton should trigger dialogue, menu, inventory, or scene logic.",

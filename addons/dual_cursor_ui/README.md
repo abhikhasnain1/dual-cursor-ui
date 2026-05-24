@@ -63,11 +63,22 @@ The plugin adds a **DualCursor UI** dock to the editor. It can:
 
 ## Common Signal
 
-Most games start by connecting:
+For standalone `DualCursorButton` nodes, connect:
 
 ```gdscript
 func _on_button_pressed_by_player(player_id: int, cursor: Node) -> void:
-	print("Player %d pressed this control." % player_id)
+	print("Player %d pressed this control." % [player_id + 1])
+```
+
+For buttons inside a `DualCursorNavigationPanel`, connect `target_activated`. This is the recommended signal for Panel Builder menus because it tells your game which player activated which target:
+
+```gdscript
+func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	match str(target.get_meta("action", target.name)):
+		"inventory":
+			open_inventory(player_id)
+		"ready":
+			set_player_ready(player_id)
 ```
 
 Use `owner_player_id = 0` for player 1, `owner_player_id = 1` for player 2, and `owner_player_id = -1` for shared controls.
@@ -103,6 +114,10 @@ Set `owner_player_id` for player-only panels, or set `occupancy_policy` to `FIRS
 ## Panel Builder
 
 Select a `Control` node in your scene, choose one of the four access presets in the dock, then click **Setup Selected Panel**. The dock assigns `DualCursorNavigationPanel`, auto-detects child buttons as navigation targets, applies the preset, and adds a lightweight two-player cursor runtime if the scene does not already have one. The builder uses Player 1 Private, Player 2 Private, Shared Exclusive, and Shared Simultaneous presets.
+
+The generated `DualCursorRuntime` is the scene wiring for immediate gameplay testing: it contains the manager, two controller cursors, and an invisible full-viewport travel region. You can keep it in real scenes, move it, or customize it later; you only need to replace it if your game has a custom input or cursor-spawning architecture.
+
+To populate dialogue, create normal `Control` or `Button` rows, append their paths to `navigation_targets`, and listen to `target_activated` for the selected choice id.
 
 ## Limitations
 
