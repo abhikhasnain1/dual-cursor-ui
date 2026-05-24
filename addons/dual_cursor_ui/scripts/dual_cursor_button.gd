@@ -61,7 +61,7 @@ func _get_label() -> Label:
 	return find_child("Label", true, false) as Label
 
 func _play_click() -> void:
-	var audio := get_node_or_null(click_audio_path) as AudioStreamPlayer
+	var audio: AudioStreamPlayer = get_node_or_null(click_audio_path) as AudioStreamPlayer
 	if audio and not audio.playing:
 		audio.play()
 
