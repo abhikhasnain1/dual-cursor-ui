@@ -6,7 +6,9 @@ const DualCursorScript := preload("res://addons/dual_cursor_ui/scripts/dual_curs
 const DualCursorInteractableScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_interactable.gd")
 const DualCursorButtonScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_button.gd")
 const DualCursorScrollAreaScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_scroll_area.gd")
-const DualCursorDockScript := preload("res://addons/dual_cursor_ui/editor/dual_cursor_dock.gd")
+const DualCursorNavigationPanelScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd")
+const DualCursorInputSetup := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_input_setup.gd")
+const DualCursorDockScene := preload("res://addons/dual_cursor_ui/editor/dual_cursor_dock.tscn")
 
 var _dock: Control
 
@@ -16,10 +18,13 @@ func _enter_tree() -> void:
 	add_custom_type("DualCursorInteractable", "Control", DualCursorInteractableScript, null)
 	add_custom_type("DualCursorButton", "Control", DualCursorButtonScript, null)
 	add_custom_type("DualCursorScrollArea", "ScrollContainer", DualCursorScrollAreaScript, null)
+	add_custom_type("DualCursorNavigationPanel", "Control", DualCursorNavigationPanelScript, null)
 
-	_dock = DualCursorDockScript.new()
+	DualCursorInputSetup.ensure_default_actions(true)
+
+	_dock = DualCursorDockScene.instantiate()
 	_dock.name = "DualCursor UI"
-	_dock.setup(self)
+	_dock.call("setup", self)
 	add_control_to_dock(DOCK_SLOT_RIGHT_UL, _dock)
 
 func _exit_tree() -> void:
@@ -28,6 +33,7 @@ func _exit_tree() -> void:
 		_dock.queue_free()
 		_dock = null
 
+	remove_custom_type("DualCursorNavigationPanel")
 	remove_custom_type("DualCursorScrollArea")
 	remove_custom_type("DualCursorButton")
 	remove_custom_type("DualCursorInteractable")

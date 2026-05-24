@@ -17,10 +17,11 @@ It is designed for split-screen and co-op games where multiple local players nee
 1. Copy `addons/dual_cursor_ui` into a Godot project.
 2. Enable **DualCursor UI** in Project Settings > Plugins.
 3. Open the **DualCursor UI** dock.
-4. Click **Create Playable 2-Player Scene** in a blank scene. This creates an editable mock scene with private regions, a shared region, buttons, cursors, interactions, and controller actions.
+4. Click **Create Playable 2-Player Scene** in a blank scene. This creates a playable template with private menu panels, private dialogue choices, exclusive shared panels, simultaneous shared panels, cursors, logging, and controller actions.
 5. Click **Validate Current Scene**.
 6. Press Play. Move player 1 with controller 1's left stick and player 2 with controller 2's left stick.
-7. Connect `DualCursorButton.pressed_by_player(player_id, cursor)` to your game logic.
+7. For your own UI, select a `Control` panel and use **Panel Builder** to configure controller navigation.
+8. Connect `DualCursorButton.pressed_by_player(player_id, cursor)` or `DualCursorNavigationPanel.target_activated(player_id, target, cursor)` to your game logic.
 
 The fastest way to see the plugin working is to open:
 
@@ -41,6 +42,7 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 - `DualCursorInteractable`: base `Control` target with ownership and shared policies.
 - `DualCursorButton`: button-like interactable with hover/select/deny feedback.
 - `DualCursorScrollArea`: `ScrollContainer` adapter for joystick scrolling.
+- `DualCursorNavigationPanel`: captures a cursor inside a panel and switches that player to ordered controller navigation, with private, exclusive shared, or simultaneous shared access.
 
 ## Shared Policies
 
@@ -53,18 +55,30 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 
 The plugin adds a **DualCursor UI** dock to the editor. It can:
 
-- Create a ready-to-edit playable two-player mock scene.
+- Create a ready-to-edit responsive two-player template scene.
+- Configure selected `Control` nodes as controller-navigation panels.
 - Set up default controller actions as part of scene creation.
 - Validate common scene setup mistakes.
 - Explain the next integration step for a new user.
 
 ## Common Signal
 
-Most games start by connecting:
+For standalone `DualCursorButton` nodes, connect:
 
 ```gdscript
 func _on_button_pressed_by_player(player_id: int, cursor: Node) -> void:
-	print("Player %d pressed this control." % player_id)
+	print("Player %d pressed this control." % [player_id + 1])
+```
+
+For buttons inside a `DualCursorNavigationPanel`, connect `target_activated`. This is the recommended signal for Panel Builder menus because it tells your game which player activated which target:
+
+```gdscript
+func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	match str(target.get_meta("action", target.name)):
+		"inventory":
+			open_inventory(player_id)
+		"ready":
+			set_player_ready(player_id)
 ```
 
 Use `owner_player_id = 0` for player 1, `owner_player_id = 1` for player 2, and `owner_player_id = -1` for shared controls.
@@ -86,8 +100,24 @@ DualCursor uses Godot Input Map actions to know when each player selects a contr
 
 - `interact_p1`: controller 1, A/Cross.
 - `interact_p2`: controller 2, A/Cross.
+- `cancel_p1`: controller 1, B/Circle.
+- `cancel_p2`: controller 2, B/Circle.
 
 You can change these later in Project Settings > Input Map.
+
+## Navigation Panels
+
+Use `DualCursorNavigationPanel` for dense menus where free cursor movement is too awkward. When a cursor enters the panel, that player is captured into virtual focus and navigates the configured `navigation_targets` with the controller. Press the cursor's `cancel_action` to return to free cursor movement.
+
+Set `owner_player_id` for player-only panels, or set `occupancy_policy` to `FIRST_PLAYER_LOCKS` for a shared panel that only one player can use at a time. The demo event log shows which player entered, exited, was denied, and activated each target first.
+
+## Panel Builder
+
+Select a `Control` node in your scene, choose one of the four access presets in the dock, then click **Setup Selected Panel**. The dock assigns `DualCursorNavigationPanel`, auto-detects child buttons as navigation targets, applies the preset, and adds a lightweight two-player cursor runtime if the scene does not already have one. The builder uses Player 1 Private, Player 2 Private, Shared Exclusive, and Shared Simultaneous presets.
+
+The generated `DualCursorRuntime` is the scene wiring for immediate gameplay testing: it contains the manager, two controller cursors, and an invisible full-viewport travel region. You can keep it in real scenes, move it, or customize it later; you only need to replace it if your game has a custom input or cursor-spawning architecture.
+
+To populate dialogue, create normal `Control` or `Button` rows, append their paths to `navigation_targets`, and listen to `target_activated` for the selected choice id.
 
 ## Limitations
 

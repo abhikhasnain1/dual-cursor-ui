@@ -16,5 +16,8 @@ It checks:
 - Overlapping interactables with the same `hit_priority`.
 - Shared controls outside cursor movement regions.
 - Player-owned controls reachable by the wrong player's cursor.
+- Navigation panels with missing or invalid `navigation_targets`.
+- Missing cancel actions used to leave controller-navigation panels.
+- Navigation panels with private, exclusive shared, or simultaneous shared access policies.
 
 Warnings are not always fatal. For example, a cursor without `manager_path` can still find a manager through the `dual_cursor_manager` group. Errors should be fixed before publishing a game scene.

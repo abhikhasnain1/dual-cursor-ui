@@ -7,30 +7,44 @@ extends Sprite2D
 @export var extra_region_node_paths: Array[NodePath] = []
 @export var manager_path: NodePath
 @export var interact_action: String = "interact_p1"
+@export var cancel_action: String = "cancel_p1"
 @export var scroll_axis: int = JOY_AXIS_RIGHT_Y
 @export var scroll_speed: float = 20.0
 @export var movement_deadzone: float = 0.05
 @export var scroll_deadzone: float = 0.1
 @export var fallback_cursor_color: Color = Color(0.2, 0.72, 1.0, 1.0)
+@export var center_on_primary_region_at_ready: bool = true
 
 var last_hovered: Control = null
 var _movement_region_rects: Array[Rect2] = []
 var _manager = null
+var _missing_action_warnings: Dictionary = {}
 
 func _ready() -> void:
+	DualCursorInputSetup.ensure_default_actions(false)
+
 	if texture == null:
 		texture = _create_fallback_texture(fallback_cursor_color)
 
 	_movement_region_rects = _resolve_region_rects()
 	if _movement_region_rects.is_empty():
 		push_warning("%s has no valid movement regions." % name)
-	else:
+	elif center_on_primary_region_at_ready:
 		global_position = _movement_region_rects[0].position + _movement_region_rects[0].size * 0.5
+	else:
+		global_position = _constrain_to_regions(global_position)
 
 	_manager = _resolve_manager()
 
 func _process(delta: float) -> void:
+	if _manager and _manager.is_cursor_in_navigation(self):
+		_manager.process_navigation_input(self, delta)
+		return
+
 	_move_cursor(delta)
+	if _manager and _manager.try_enter_navigation_panel(self, global_position):
+		return
+
 	_handle_scroll()
 	_handle_hover()
 	_handle_interaction()
@@ -39,6 +53,10 @@ func get_control_under_cursor() -> Control:
 	if _manager:
 		return _manager.get_interactable_at(global_position, player_id)
 	return null
+
+func refresh_movement_regions() -> void:
+	_movement_region_rects = _resolve_region_rects()
+	global_position = _constrain_to_regions(global_position)
 
 func _move_cursor(delta: float) -> void:
 	var axis_x := Input.get_joy_axis(player_id, JOY_AXIS_LEFT_X)
@@ -65,11 +83,23 @@ func _handle_hover() -> void:
 	last_hovered = under
 
 func _handle_interaction() -> void:
+	if not _is_action_ready(interact_action):
+		return
 	if not Input.is_action_just_pressed(interact_action):
 		return
 
 	if _manager:
 		_manager.interact(self, global_position)
+
+func _is_action_ready(action_name: String) -> bool:
+	if action_name.is_empty():
+		return false
+	if InputMap.has_action(action_name):
+		return true
+	if not _missing_action_warnings.has(action_name):
+		_missing_action_warnings[action_name] = true
+		push_warning("%s uses missing InputMap action: %s" % [name, action_name])
+	return false
 
 func _resolve_manager() -> Node:
 	if not manager_path.is_empty():
@@ -92,7 +122,7 @@ func _append_region_rect(rects: Array[Rect2], path: NodePath) -> void:
 	if path.is_empty():
 		return
 
-	var region_node := get_node_or_null(path) as Control
+	var region_node: Control = get_node_or_null(path) as Control
 	if region_node:
 		rects.append(region_node.get_global_rect())
 

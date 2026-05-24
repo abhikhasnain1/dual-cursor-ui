@@ -1,9 +1,16 @@
 @tool
 extends VBoxContainer
 
+const DualCursorInputSetup := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_input_setup.gd")
+const MANAGER_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_manager.gd"
 const MANAGER_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_manager.gd")
+const CURSOR_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor.gd"
 const CURSOR_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor.gd")
+const NAVIGATION_PANEL_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd"
+const NAVIGATION_PANEL_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd")
 const DEMO_SCENE_PATH := "res://addons/dual_cursor_ui/demos/two_player_menu_demo.tscn"
+const PANEL_OCCUPANCY_ALLOW_MULTIPLE := 0
+const PANEL_OCCUPANCY_FIRST_PLAYER_LOCKS := 1
 const CONNECT_BUTTON_EXAMPLE := """extends Node
 
 @export var choice_button: DualCursorButton
@@ -50,9 +57,54 @@ func _on_shared_confirmed(player_ids: PackedInt32Array) -> void:
 	print("Both players confirmed: %s" % [player_ids])
 	# Start the scene, commit the vote, or advance the shared choice here.
 """
+const PANEL_ACTION_EXAMPLE := """extends Node
+
+@export var panel: DualCursorNavigationPanel
+
+func _ready() -> void:
+	panel.target_activated.connect(_on_panel_target_activated)
+
+func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	match str(target.get_meta("action", target.name)):
+		"inventory":
+			open_inventory(player_id)
+		"skill":
+			open_skill_tree(player_id)
+		"ready":
+			set_ready(player_id)
+"""
+const DIALOGUE_CHOICES_EXAMPLE := """extends Node
+
+@export var dialogue_panel: DualCursorNavigationPanel
+@export var choices_container: VBoxContainer
+
+func _ready() -> void:
+	dialogue_panel.target_activated.connect(_on_dialogue_choice_selected)
+
+func show_dialogue_choices(player_id: int, choices: Array[Dictionary]) -> void:
+	for child in choices_container.get_children():
+		child.queue_free()
+
+	dialogue_panel.navigation_targets.clear()
+	dialogue_panel.owner_player_id = player_id
+
+	for choice in choices:
+		var button := Button.new()
+		button.text = str(choice["text"])
+		button.set_meta("choice_id", choice["id"])
+		choices_container.add_child(button)
+		dialogue_panel.navigation_targets.append(dialogue_panel.get_path_to(button))
+
+func _on_dialogue_choice_selected(player_id: int, target: Control, cursor: Node) -> void:
+	var choice_id := str(target.get_meta("choice_id", ""))
+	print("Player %d chose %s" % [player_id + 1, choice_id])
+"""
 
 var _plugin: EditorPlugin
 var _results: RichTextLabel
+var _panel_preset: OptionButton
+var _selected_panel_status: Label
+var _selected_target_status: Label
 
 func setup(plugin: EditorPlugin) -> void:
 	_plugin = plugin
@@ -61,6 +113,7 @@ func _ready() -> void:
 	name = "DualCursor UI"
 	custom_minimum_size = Vector2(360, 0)
 	_build_ui()
+	_refresh_selected_panel_info()
 	_run_validation()
 
 func _build_ui() -> void:
@@ -81,7 +134,34 @@ func _build_ui() -> void:
 	var create_button := _button("Create Playable 2-Player Scene")
 	create_button.pressed.connect(_create_playable_scene)
 	body.add_child(create_button)
-	body.add_child(_paragraph("Creates a complete editable mock scene with private regions, a shared region, buttons, cursors, interactions, and controller actions."))
+	body.add_child(_paragraph("Creates a complete playable template with private menu panels, private dialogue choices, exclusive shared panels, simultaneous shared panels, cursors, logging, and controller actions. The template adapts to the current viewport and does not require a fixed project window size."))
+
+	body.add_child(_section("Panel Builder"))
+	body.add_child(_paragraph("Select one of your own Control panels, choose an access preset, then configure it for controller navigation. The builder also adds a lightweight two-player cursor runtime if the scene does not already have one."))
+	_selected_panel_status = _paragraph("Selected panel: none")
+	body.add_child(_selected_panel_status)
+	_selected_target_status = _paragraph("Detected targets: 0")
+	body.add_child(_selected_target_status)
+
+	_panel_preset = OptionButton.new()
+	_panel_preset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_panel_preset.add_item("Player 1 Private", 0)
+	_panel_preset.add_item("Player 2 Private", 1)
+	_panel_preset.add_item("Shared Exclusive", 2)
+	_panel_preset.add_item("Shared Simultaneous", 3)
+	body.add_child(_panel_preset)
+
+	var refresh_panel_button := _button("Refresh Selected Panel Info")
+	refresh_panel_button.pressed.connect(_refresh_selected_panel_info)
+	body.add_child(refresh_panel_button)
+
+	var setup_panel_button := _button("Setup Selected Panel")
+	setup_panel_button.pressed.connect(_setup_selected_panel)
+	body.add_child(setup_panel_button)
+
+	var validate_panel_button := _button("Validate Selected Panel")
+	validate_panel_button.pressed.connect(_validate_selected_panel)
+	body.add_child(validate_panel_button)
 
 	body.add_child(_section("Validate Scene"))
 	var validate_button := _button("Validate Current Scene")
@@ -96,11 +176,21 @@ func _build_ui() -> void:
 	body.add_child(_results)
 
 	body.add_child(_section("Next Steps"))
-	body.add_child(_paragraph("Try this now: click Create Playable 2-Player Scene, press Play, move each cursor with the left stick, press A/Cross on your own button, then move both cursors into the Shared region and press A/Cross on Shared Confirm."))
-	body.add_child(_paragraph("When that works, connect DualCursorButton.pressed_by_player(player_id, cursor) to your game logic. Change owner_player_id to decide who can use a control: 0 for player 1, 1 for player 2, and -1 for shared. Keep private controls inside the matching player region; put shared controls inside a region assigned to both cursors."))
+	body.add_child(_paragraph("Use Create Playable 2-Player Scene to test the full template, or select your own Control panel and run Panel Builder. Press A/Cross to activate and B/Circle to leave controller-navigation panels."))
+	body.add_child(_paragraph("For built panels, connect DualCursorNavigationPanel.target_activated(player_id, target, cursor). For standalone DualCursorButton nodes, connect pressed_by_player(player_id, cursor). Set owner_player_id to 0 for player 1, 1 for player 2, and -1 for shared."))
 
 	body.add_child(_section("Use In Your Game"))
 	body.add_child(_paragraph("These examples are safe to paste into a normal game script. Assign the exported nodes in the Inspector, then connect the plugin's player-aware signals to your own game state."))
+	body.add_child(_guide_panel(
+		"Connect Panel Buttons",
+		"Use target_activated for buttons inside Panel Builder menus because it reports both the player and selected target.",
+		PANEL_ACTION_EXAMPLE
+	))
+	body.add_child(_guide_panel(
+		"Populate Dialogue Choices",
+		"Create normal Button or Control rows, append them to navigation_targets, and store your dialogue choice id in metadata.",
+		DIALOGUE_CHOICES_EXAMPLE
+	))
 	body.add_child(_guide_panel(
 		"Connect Buttons to Game Logic",
 		"Use pressed_by_player when a DualCursorButton should trigger dialogue, menu, inventory, or scene logic.",
@@ -127,12 +217,12 @@ func _create_playable_scene() -> void:
 		_show_results(["[color=red]Demo scene not found: %s[/color]" % DEMO_SCENE_PATH])
 		return
 
-	var existing := root.get_node_or_null("DualCursorUIDemo")
+	var existing: Node = root.get_node_or_null("DualCursorUIDemo")
 	if existing:
 		root.remove_child(existing)
 		existing.free()
 
-	var demo_scene := load(DEMO_SCENE_PATH) as PackedScene
+	var demo_scene: PackedScene = load(DEMO_SCENE_PATH) as PackedScene
 	var demo := demo_scene.instantiate()
 	demo.name = "DualCursorUIDemo"
 	_make_scene_local(demo)
@@ -144,21 +234,302 @@ func _create_playable_scene() -> void:
 	_show_results([
 		"[color=green]OK: Created a playable 2-player DualCursor scene.[/color]",
 		"Try next: Press Play and move both cursors with the left sticks.",
-		"Try next: Confirm each cursor stays in its own private region and can also enter the shared region.",
-		"Try next: Press A/Cross on each private button and Shared Confirm."
+		"Try next: Enter the private menu, private dialogue, exclusive shared, and simultaneous shared panels.",
+		"Try next: Press A/Cross on targets, press B/Circle to exit, and watch the event log."
 	])
 	_run_validation()
 
 func _add_input_actions() -> void:
-	_add_action_if_missing("interact_p1", 0)
-	_add_action_if_missing("interact_p2", 1)
-	ProjectSettings.save()
+	DualCursorInputSetup.ensure_default_actions(true)
 	_show_results([
-		"[color=green]OK: Controller A/Cross actions are ready.[/color]",
-		"This creates the project-level actions DualCursor uses when each player presses A/Cross.",
+		"[color=green]OK: Controller A/Cross and B/Circle actions are ready.[/color]",
+		"This creates the project-level actions DualCursor uses for select and panel-navigation exit.",
 		"You usually only need to press this once per project.",
-		"`interact_p1` is controller 1, A/Cross. `interact_p2` is controller 2, A/Cross."
+		"`interact_p1` and `interact_p2` use A/Cross. `cancel_p1` and `cancel_p2` use B/Circle."
 	])
+
+func _setup_selected_panel() -> void:
+	var panel: Control = _get_selected_control()
+	if panel == null:
+		_show_results(["[color=red]Select a Control node before running Panel Builder.[/color]"])
+		_refresh_selected_panel_info()
+		return
+
+	var script: Script = panel.get_script() as Script
+	if script and script.resource_path != NAVIGATION_PANEL_SCRIPT_PATH:
+		_show_results([
+			"[color=red]Panel Builder will not overwrite %s's existing script.[/color]" % panel.name,
+			"Use a plain Control node or an existing DualCursorNavigationPanel."
+		])
+		_refresh_selected_panel_info()
+		return
+
+	var target_paths: Array[NodePath] = _detect_navigation_target_paths(panel)
+	if target_paths.is_empty():
+		_show_results([
+			"[color=red]No usable navigation targets found under %s.[/color]" % panel.name,
+			"Add visible Button children, or visible Control rows, then refresh."
+		])
+		_refresh_selected_panel_info()
+		return
+
+	if script == null:
+		panel.set_script(NAVIGATION_PANEL_SCRIPT)
+
+	var preset_id: int = _panel_preset.get_selected_id() if _panel_preset else 0
+	panel.set("owner_player_id", _preset_owner_player_id(preset_id))
+	panel.set("occupancy_policy", _preset_occupancy_policy(preset_id))
+	panel.set("navigation_targets", target_paths)
+	panel.set("selection_width", 8.0)
+	panel.set("selection_padding", 2.0)
+	panel.set("player_selection_colors", PackedColorArray([
+		Color(0.0, 0.42, 0.78, 1.0),
+		Color(0.86, 0.28, 0.12, 1.0)
+	]))
+
+	DualCursorInputSetup.ensure_default_actions(true)
+	var rig_messages: Array[String] = _ensure_cursor_runtime(panel)
+	_mark_scene_unsaved()
+	_refresh_selected_panel_info()
+	var result_lines: Array[String] = [
+		"[color=green]OK: Configured %s as %s.[/color]" % [panel.name, _preset_name(preset_id)],
+		"Navigation targets: %d" % target_paths.size(),
+		"Run Validate Selected Panel, then run the scene and move a cursor into this panel."
+	]
+	result_lines.append_array(rig_messages)
+	_show_results(result_lines)
+
+func _validate_selected_panel() -> void:
+	var panel: Control = _get_selected_control()
+	if panel == null:
+		_show_results(["[color=red]Select a Control node to validate.[/color]"])
+		_refresh_selected_panel_info()
+		return
+
+	var lines: Array[String] = []
+	var script: Script = panel.get_script() as Script
+	if script == null or script.resource_path != NAVIGATION_PANEL_SCRIPT_PATH:
+		lines.append("[color=red]Fix needed: %s is not a DualCursorNavigationPanel. Click Setup Selected Panel.[/color]" % panel.name)
+		_show_results(lines)
+		_refresh_selected_panel_info()
+		return
+
+	lines.append("[color=green]OK: %s uses DualCursorNavigationPanel.[/color]" % panel.name)
+	var target_paths: Array = panel.get("navigation_targets")
+	if target_paths.is_empty():
+		lines.append("[color=red]Fix needed: %s has no navigation_targets.[/color]" % panel.name)
+	else:
+		lines.append("[color=green]OK: %d navigation target(s) assigned.[/color]" % target_paths.size())
+		for target_path in target_paths:
+			if not (target_path is NodePath) or (target_path as NodePath).is_empty():
+				lines.append("[color=red]Fix needed: %s has an empty navigation target path.[/color]" % panel.name)
+				continue
+			_validate_navigation_target(panel, target_path, lines)
+
+	lines.append("[color=green]Preset: %s.[/color]" % _panel_preset_summary(panel))
+	_show_results(lines)
+	_refresh_selected_panel_info()
+
+func _refresh_selected_panel_info() -> void:
+	if _selected_panel_status == null or _selected_target_status == null:
+		return
+
+	var panel: Control = _get_selected_control()
+	if panel == null:
+		_selected_panel_status.text = "Selected panel: none"
+		_selected_target_status.text = "Detected targets: 0"
+		return
+
+	var script: Script = panel.get_script() as Script
+	var script_status: String = "plain Control"
+	if script:
+		script_status = "DualCursorNavigationPanel" if script.resource_path == NAVIGATION_PANEL_SCRIPT_PATH else "custom script"
+	_selected_panel_status.text = "Selected panel: %s (%s)" % [panel.name, script_status]
+	_selected_target_status.text = "Detected targets: %d" % _detect_navigation_target_paths(panel).size()
+
+func _get_selected_control() -> Control:
+	if _plugin == null:
+		return null
+	var selection := _plugin.get_editor_interface().get_selection()
+	if selection == null:
+		return null
+	var nodes: Array = selection.get_selected_nodes()
+	if nodes.is_empty():
+		return null
+	for node in nodes:
+		if node is Control:
+			return node
+	return null
+
+func _detect_navigation_target_paths(panel: Control) -> Array[NodePath]:
+	var buttons: Array[Control] = []
+	_collect_target_controls(panel, panel, buttons, true)
+	var controls: Array[Control] = []
+	if buttons.is_empty():
+		_collect_target_controls(panel, panel, controls, false)
+	else:
+		controls.append_array(buttons)
+
+	var paths: Array[NodePath] = []
+	for control in controls:
+		paths.append(panel.get_path_to(control))
+	return paths
+
+func _collect_target_controls(root_panel: Control, node: Node, results: Array[Control], buttons_only: bool) -> void:
+	for child in node.get_children():
+		if child is Control:
+			var control: Control = child as Control
+			if _is_usable_panel_target(root_panel, control, buttons_only):
+				results.append(control)
+			_collect_target_controls(root_panel, child, results, buttons_only)
+
+func _is_usable_panel_target(root_panel: Control, control: Control, buttons_only: bool) -> bool:
+	if control == root_panel:
+		return false
+	if control.name == "DualCursorRuntime":
+		return false
+	if not control.visible:
+		return false
+	if buttons_only:
+		return control is BaseButton
+	if control is Label or control is ColorRect or control is TextureRect:
+		return false
+	return control.size != Vector2.ZERO
+
+func _preset_owner_player_id(preset_id: int) -> int:
+	match preset_id:
+		0:
+			return 0
+		1:
+			return 1
+		_:
+			return -1
+
+func _preset_occupancy_policy(preset_id: int) -> int:
+	return PANEL_OCCUPANCY_FIRST_PLAYER_LOCKS if preset_id == 2 else PANEL_OCCUPANCY_ALLOW_MULTIPLE
+
+func _preset_name(preset_id: int) -> String:
+	match preset_id:
+		0:
+			return "Player 1 Private"
+		1:
+			return "Player 2 Private"
+		2:
+			return "Shared Exclusive"
+		3:
+			return "Shared Simultaneous"
+	return "Unknown Preset"
+
+func _panel_preset_summary(panel: Control) -> String:
+	var owner_player_id: int = int(panel.get("owner_player_id"))
+	var occupancy_policy: int = int(panel.get("occupancy_policy"))
+	if owner_player_id == 0:
+		return "Player 1 Private"
+	if owner_player_id == 1:
+		return "Player 2 Private"
+	if occupancy_policy == PANEL_OCCUPANCY_FIRST_PLAYER_LOCKS:
+		return "Shared Exclusive"
+	return "Shared Simultaneous"
+
+func _mark_scene_unsaved() -> void:
+	if _plugin == null:
+		return
+	var editor_interface := _plugin.get_editor_interface()
+	if editor_interface and editor_interface.has_method("mark_scene_as_unsaved"):
+		editor_interface.mark_scene_as_unsaved()
+
+func _ensure_cursor_runtime(panel: Control) -> Array[String]:
+	var lines: Array[String] = []
+	var root := _get_scene_root()
+	if root == null:
+		return lines
+
+	var manager: Node = _find_first_by_script_path(root, MANAGER_SCRIPT_PATH)
+	var rig: Control = root.get_node_or_null("DualCursorRuntime") as Control
+	if rig == null:
+		rig = Control.new()
+		rig.name = "DualCursorRuntime"
+		rig.set_anchors_preset(Control.PRESET_FULL_RECT)
+		rig.set_offsets_preset(Control.PRESET_FULL_RECT)
+		rig.size = panel.get_viewport_rect().size
+		rig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(rig)
+		_set_owner_recursive(rig, root)
+		lines.append("Added DualCursorRuntime with a full-viewport movement region.")
+
+	var travel_region: ColorRect = rig.get_node_or_null("CursorTravelRegion") as ColorRect
+	if travel_region == null:
+		travel_region = ColorRect.new()
+		travel_region.name = "CursorTravelRegion"
+		travel_region.color = Color(0, 0, 0, 0)
+		travel_region.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		travel_region.set_anchors_preset(Control.PRESET_FULL_RECT)
+		travel_region.set_offsets_preset(Control.PRESET_FULL_RECT)
+		travel_region.size = panel.get_viewport_rect().size
+		rig.add_child(travel_region)
+		travel_region.owner = root
+
+	if manager == null:
+		manager = Node.new()
+		manager.name = "DualCursorManager"
+		manager.set_script(MANAGER_SCRIPT)
+		rig.add_child(manager)
+		manager.owner = root
+		lines.append("Added DualCursorManager.")
+
+	if _ensure_runtime_cursor(rig, root, manager, travel_region, "Cursor1", 0, "interact_p1", "cancel_p1", Color(0.2, 0.72, 1.0, 1.0), panel):
+		lines.append("Added Player 1 cursor.")
+	if _ensure_runtime_cursor(rig, root, manager, travel_region, "Cursor2", 1, "interact_p2", "cancel_p2", Color(1.0, 0.45, 0.25, 1.0), panel):
+		lines.append("Added Player 2 cursor.")
+	return lines
+
+func _ensure_runtime_cursor(rig: Control, scene_root: Node, manager: Node, travel_region: Control, cursor_name: String, player_id: int, interact_action: String, cancel_action: String, color: Color, panel: Control) -> bool:
+	var cursor: Sprite2D = _find_cursor_by_player(scene_root, player_id)
+	var created := false
+	if cursor == null:
+		cursor = Sprite2D.new()
+		cursor.name = cursor_name
+		cursor.z_index = 100
+		cursor.set_script(CURSOR_SCRIPT)
+		rig.add_child(cursor)
+		cursor.owner = scene_root
+		created = true
+
+	cursor.set("player_id", player_id)
+	cursor.set("manager_path", cursor.get_path_to(manager))
+	cursor.set("region_node_path", cursor.get_path_to(travel_region))
+	cursor.set("extra_region_node_paths", [cursor.get_path_to(panel)])
+	cursor.set("interact_action", interact_action)
+	cursor.set("cancel_action", cancel_action)
+	cursor.set("fallback_cursor_color", color)
+	cursor.set("center_on_primary_region_at_ready", false)
+	_place_cursor_near_panel(cursor, panel, player_id)
+	return created
+
+func _place_cursor_near_panel(cursor: Sprite2D, panel: Control, player_id: int) -> void:
+	var panel_rect: Rect2 = panel.get_global_rect()
+	var viewport_size: Vector2 = panel.get_viewport_rect().size
+	var player_offset: float = float(player_id) * 36.0
+	var start_position: Vector2 = panel_rect.position + Vector2(-48.0, 24.0 + player_offset)
+
+	if start_position.x < 8.0:
+		start_position.x = panel_rect.position.x + 24.0 + player_offset
+
+	start_position.x = clamp(start_position.x, 8.0, max(8.0, viewport_size.x - 8.0))
+	start_position.y = clamp(start_position.y, 8.0, max(8.0, viewport_size.y - 8.0))
+	cursor.global_position = start_position
+
+func _find_cursor_by_player(root: Node, player_id: int) -> Sprite2D:
+	for node in _find_by_script_path(root, CURSOR_SCRIPT_PATH):
+		if int(node.get("player_id")) == player_id and node is Sprite2D:
+			return node as Sprite2D
+	return null
+
+func _find_first_by_script_path(root: Node, script_path: String) -> Node:
+	var nodes := _find_by_script_path(root, script_path)
+	if nodes.is_empty():
+		return null
+	return nodes[0]
 
 func _run_validation() -> void:
 	if _results == null:
@@ -170,8 +541,9 @@ func _run_validation() -> void:
 		return
 
 	var lines: Array[String] = []
-	var managers := _find_by_script(root, MANAGER_SCRIPT)
-	var cursors := _find_by_script(root, CURSOR_SCRIPT)
+	var managers := _find_by_script_path(root, MANAGER_SCRIPT_PATH)
+	var cursors := _find_by_script_path(root, CURSOR_SCRIPT_PATH)
+	var navigation_panels := _find_by_script_path(root, NAVIGATION_PANEL_SCRIPT_PATH)
 	var interactables := _find_interactables(root)
 
 	if managers.is_empty():
@@ -189,22 +561,32 @@ func _run_validation() -> void:
 	for cursor in cursors:
 		_validate_cursor(cursor, lines)
 
-	if interactables.is_empty():
+	if interactables.is_empty() and navigation_panels.is_empty():
 		lines.append("[color=red]Fix needed: No clickable DualCursor controls found.[/color]")
+	elif interactables.is_empty():
+		lines.append("[color=green]OK: Scene uses controller-navigation panels for interaction.[/color]")
 	else:
 		lines.append("[color=green]OK: %d clickable DualCursor control(s) found.[/color]" % interactables.size())
 		_validate_interactables(interactables, lines)
 		_validate_shared_reachability(cursors, interactables, lines)
 		_validate_private_boundaries(cursors, interactables, lines)
 
+	if not navigation_panels.is_empty():
+		lines.append("[color=green]OK: %d controller-navigation panel(s) found.[/color]" % navigation_panels.size())
+		_validate_navigation_panels(navigation_panels, lines)
+
 	if not InputMap.has_action("interact_p1"):
 		lines.append("[color=red]Fix needed: Missing controller action interact_p1. Click Create Playable 2-Player Scene.[/color]")
 	if not InputMap.has_action("interact_p2"):
 		lines.append("[color=red]Fix needed: Missing controller action interact_p2. Click Create Playable 2-Player Scene.[/color]")
-	if InputMap.has_action("interact_p1") and InputMap.has_action("interact_p2"):
-		lines.append("[color=green]OK: Controller A/Cross actions are ready.[/color]")
+	if not InputMap.has_action("cancel_p1"):
+		lines.append("[color=yellow]Warning: Missing controller action cancel_p1. Panel navigation needs a release action.[/color]")
+	if not InputMap.has_action("cancel_p2"):
+		lines.append("[color=yellow]Warning: Missing controller action cancel_p2. Panel navigation needs a release action.[/color]")
+	if InputMap.has_action("interact_p1") and InputMap.has_action("interact_p2") and InputMap.has_action("cancel_p1") and InputMap.has_action("cancel_p2"):
+		lines.append("[color=green]OK: Controller select and cancel actions are ready.[/color]")
 
-	if managers.size() == 1 and not cursors.is_empty() and not interactables.is_empty() and InputMap.has_action("interact_p1") and InputMap.has_action("interact_p2"):
+	if managers.size() == 1 and not cursors.is_empty() and (not interactables.is_empty() or not navigation_panels.is_empty()) and InputMap.has_action("interact_p1") and InputMap.has_action("interact_p2") and InputMap.has_action("cancel_p1") and InputMap.has_action("cancel_p2"):
 		lines.append("[color=green]Ready: Run the scene, then use the Use In Your Game examples below to connect DualCursor UI to your game logic.[/color]")
 
 	_show_results(lines)
@@ -230,6 +612,14 @@ func _validate_cursor(cursor: Node, lines: Array[String]) -> void:
 
 	if cursor is Sprite2D and cursor.texture == null:
 		lines.append("[color=yellow]Warning: %s has no texture. It will use a generated fallback cursor at runtime.[/color]" % cursor.name)
+
+	var interact_action := str(cursor.get("interact_action"))
+	if not interact_action.is_empty() and not InputMap.has_action(interact_action):
+		lines.append("[color=red]Fix needed: %s uses missing interact action %s.[/color]" % [cursor.name, interact_action])
+
+	var cancel_action := str(cursor.get("cancel_action"))
+	if not cancel_action.is_empty() and not InputMap.has_action(cancel_action):
+		lines.append("[color=yellow]Warning: %s uses missing cancel action %s. Panel navigation needs a release action.[/color]" % [cursor.name, cancel_action])
 
 func _validate_interactables(interactables: Array, lines: Array[String]) -> void:
 	for node in interactables:
@@ -279,6 +669,32 @@ func _validate_private_boundaries(cursors: Array, interactables: Array, lines: A
 			if _cursor_can_reach_control(cursor, interactable):
 				lines.append("[color=red]Fix needed: %s can reach %s, but that control belongs to player %d. Move the control or remove the overlapping cursor region.[/color]" % [cursor.name, interactable.name, owner_player_id + 1])
 
+func _validate_navigation_panels(navigation_panels: Array, lines: Array[String]) -> void:
+	for panel in navigation_panels:
+		if not (panel is Control):
+			continue
+		var target_paths: Array = panel.get("navigation_targets")
+		if target_paths.is_empty():
+			lines.append("[color=red]Fix needed: %s has no navigation_targets.[/color]" % panel.name)
+			continue
+		for target_path in target_paths:
+			if not (target_path is NodePath) or (target_path as NodePath).is_empty():
+				lines.append("[color=red]Fix needed: %s has an empty navigation target path.[/color]" % panel.name)
+				continue
+			_validate_navigation_target(panel, target_path, lines)
+
+func _validate_navigation_target(panel: Control, target_path: NodePath, lines: Array[String]) -> void:
+	var node: Node = panel.get_node_or_null(target_path)
+	if node == null or not (node is Control):
+		lines.append("[color=red]Fix needed: %s has an invalid navigation target: %s.[/color]" % [panel.name, target_path])
+		return
+
+	var control: Control = node as Control
+	if control.get_global_rect().size == Vector2.ZERO:
+		lines.append("[color=yellow]Warning: %s navigation target %s has a zero-sized rect.[/color]" % [panel.name, control.name])
+	elif not control.is_visible_in_tree():
+		lines.append("[color=yellow]Warning: %s navigation target %s is hidden.[/color]" % [panel.name, control.name])
+
 func _cursor_can_reach_control(cursor: Node, control: Control) -> bool:
 	for region in _get_cursor_regions(cursor):
 		if region.get_global_rect().intersects(control.get_global_rect()):
@@ -288,7 +704,7 @@ func _cursor_can_reach_control(cursor: Node, control: Control) -> bool:
 func _get_cursor_regions(cursor: Node) -> Array[Control]:
 	var regions: Array[Control] = []
 	var region_path: NodePath = cursor.get("region_node_path")
-	var primary := cursor.get_node_or_null(region_path) as Control
+	var primary: Control = cursor.get_node_or_null(region_path) as Control
 	if primary:
 		regions.append(primary)
 
@@ -296,32 +712,17 @@ func _get_cursor_regions(cursor: Node) -> Array[Control]:
 	for extra_path in extra_paths:
 		if not (extra_path is NodePath):
 			continue
-		var extra := cursor.get_node_or_null(extra_path) as Control
+		var extra: Control = cursor.get_node_or_null(extra_path) as Control
 		if extra and not regions.has(extra):
 			regions.append(extra)
 
 	return regions
 
-func _add_action_if_missing(action_name: String, device: int) -> void:
-	if not InputMap.has_action(action_name):
-		InputMap.add_action(action_name, 0.2)
-
-	var has_event := false
-	for event in InputMap.action_get_events(action_name):
-		if event is InputEventJoypadButton and event.device == device and event.button_index == JOY_BUTTON_A:
-			has_event = true
-			break
-
-	if not has_event:
-		var joy_event := InputEventJoypadButton.new()
-		joy_event.device = device
-		joy_event.button_index = JOY_BUTTON_A
-		InputMap.action_add_event(action_name, joy_event)
-
-func _find_by_script(root: Node, script: Script) -> Array:
+func _find_by_script_path(root: Node, script_path: String) -> Array:
 	var matches := []
 	for node in _walk(root):
-		if node.get_script() == script:
+		var script: Script = node.get_script() as Script
+		if script and script.resource_path == script_path:
 			matches.append(node)
 	return matches
 
@@ -355,10 +756,11 @@ func _set_owner_recursive(node: Node, owner: Node) -> void:
 
 func _prepare_demo_root(demo: Node) -> void:
 	if demo is Control:
-		var control := demo as Control
+		var control: Control = demo as Control
 		control.position = Vector2.ZERO
-		control.size = Vector2(1100, 800)
-		control.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		control.set_anchors_preset(Control.PRESET_FULL_RECT)
+		control.set_offsets_preset(Control.PRESET_FULL_RECT)
+		control.size = control.get_viewport_rect().size
 
 func _show_results(lines: Array) -> void:
 	if _results == null:
