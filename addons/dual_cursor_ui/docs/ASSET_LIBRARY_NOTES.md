@@ -25,7 +25,7 @@ Do not describe this addon as native multifocus. It is a custom local multiplaye
 - Include README, LICENSE, docs, and demo scene.
 - Use a square PNG/JPG icon for the Asset Library listing.
 - Use direct raw GitHub image URLs for the icon and screenshots:
-  `https://raw.githubusercontent.com/abhikhasnain1/dual-cursor-ui/v0.3.0/asset-library/dual_cursor_icon.png`
+  `https://raw.githubusercontent.com/abhikhasnain1/dual-cursor-ui/v0.3.0/asset-library/icon.png`
 - Use matching raw screenshot URLs:
-  `https://raw.githubusercontent.com/abhikhasnain1/dual-cursor-ui/v0.3.0/asset-library/5.png`
+  `https://raw.githubusercontent.com/abhikhasnain1/dual-cursor-ui/v0.3.0/asset-library/full1.png`
 - Confirm the download archive does not include `.godot`, `.gitignore`, `.gitattributes`, root README/LICENSE, or `asset-library`.
