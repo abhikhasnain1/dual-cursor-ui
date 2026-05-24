@@ -88,3 +88,11 @@ func _ready() -> void:
 func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -> void:
 	print("Player %d activated %s" % [player_id + 1, target.name])
 ```
+
+## Convert An Existing Menu
+
+1. Select a plain `Control` panel that contains child `Button` nodes.
+2. In the DualCursor UI dock, choose the matching Panel Builder access preset.
+3. Click **Setup Selected Panel**.
+4. Click **Validate Selected Panel**.
+5. Connect `DualCursorNavigationPanel.target_activated(player_id, target, cursor)` to game logic.

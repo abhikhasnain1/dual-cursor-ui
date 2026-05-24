@@ -60,3 +60,7 @@ Activation priority:
 After any activation path, the panel emits `target_activated(player_id, target, cursor)` and the manager emits `navigation_target_activated(player_id, panel, target)`.
 
 Entry denial is available through manager signal `navigation_denied(player_id, panel, reason)`.
+
+## Panel Builder
+
+The editor dock can configure a selected `Control` as a `DualCursorNavigationPanel`. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets default selection colors, and validates the selected panel. It does not overwrite unrelated custom scripts.

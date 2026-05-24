@@ -24,7 +24,8 @@ Project > Project Settings > Plugins > DualCursor UI
 6. Move each cursor with the matching controller's left stick.
 7. Press A/Cross to activate a button.
 8. Move into any private or shared panel to switch from free cursor movement to controller navigation. Press B/Circle to exit it.
-9. Use the **Use In Your Game** section in the dock for copyable GDScript examples.
+9. Use **Panel Builder** on your own selected `Control` panels when you are ready to configure a real game UI.
+10. Use the **Use In Your Game** section in the dock for copyable GDScript examples.
 
 ## Connect A Button
 
@@ -71,6 +72,17 @@ Keep player-owned controls inside that player's private region. Put shared contr
 Use `DualCursorNavigationPanel` for dense menus or panels where pointing a free cursor at every option feels awkward. Add the panel to a reachable movement region, then assign its `navigation_targets` in the order players should move through them. Entering the panel automatically captures that player into controller navigation; `cancel_action` exits back to free cursor movement.
 
 For private panels, set `owner_player_id` to the allowed player. For shared panels that only one player can use at a time, set `occupancy_policy` to `FIRST_PLAYER_LOCKS`. For dialogue choices, use normal `Control` rows as `navigation_targets` and listen to `target_activated`.
+
+## Convert Your Own Menu Panel
+
+1. Build a normal Godot `Control` panel with child buttons.
+2. Select the panel node in the Scene dock.
+3. In the DualCursor UI dock, choose a Panel Builder preset: Player 1 Private, Player 2 Private, Shared Exclusive, or Shared Simultaneous.
+4. Click **Setup Selected Panel**.
+5. Click **Validate Selected Panel**.
+6. Run the scene, move a cursor into the panel, navigate with the left stick, activate with A/Cross, and exit with B/Circle.
+
+Panel Builder will not overwrite a custom script. Use a plain `Control` node or an existing `DualCursorNavigationPanel`.
 
 ## Overlaps
 

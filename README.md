@@ -20,7 +20,8 @@ It is designed for split-screen and co-op games where multiple local players nee
 4. Click **Create Playable 2-Player Scene** in a blank scene. This creates a playable template with private menu panels, private dialogue choices, exclusive shared panels, simultaneous shared panels, cursors, logging, and controller actions.
 5. Click **Validate Current Scene**.
 6. Press Play. Move player 1 with controller 1's left stick and player 2 with controller 2's left stick.
-7. Connect `DualCursorButton.pressed_by_player(player_id, cursor)` to your game logic.
+7. For your own UI, select a `Control` panel and use **Panel Builder** to configure controller navigation.
+8. Connect `DualCursorButton.pressed_by_player(player_id, cursor)` or `DualCursorNavigationPanel.target_activated(player_id, target, cursor)` to your game logic.
 
 The fastest way to see the plugin working is to open:
 
@@ -55,6 +56,7 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 The plugin adds a **DualCursor UI** dock to the editor. It can:
 
 - Create a ready-to-edit responsive two-player template scene.
+- Configure selected `Control` nodes as controller-navigation panels.
 - Set up default controller actions as part of scene creation.
 - Validate common scene setup mistakes.
 - Explain the next integration step for a new user.
@@ -97,6 +99,10 @@ You can change these later in Project Settings > Input Map.
 Use `DualCursorNavigationPanel` for dense menus where free cursor movement is too awkward. When a cursor enters the panel, that player is captured into virtual focus and navigates the configured `navigation_targets` with the controller. Press the cursor's `cancel_action` to return to free cursor movement.
 
 Set `owner_player_id` for player-only panels, or set `occupancy_policy` to `FIRST_PLAYER_LOCKS` for a shared panel that only one player can use at a time. The demo event log shows which player entered, exited, was denied, and activated each target first.
+
+## Panel Builder
+
+Select a `Control` node in your scene, choose one of the four access presets in the dock, then click **Setup Selected Panel**. The dock assigns `DualCursorNavigationPanel`, auto-detects child buttons as navigation targets, applies the preset, and validates the panel. The builder uses Player 1 Private, Player 2 Private, Shared Exclusive, and Shared Simultaneous presets.
 
 ## Limitations
 
