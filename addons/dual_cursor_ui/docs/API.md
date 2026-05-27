@@ -41,6 +41,18 @@ Button-like interactable that emits `pressed_by_player(player_id, cursor)`.
 
 `ScrollContainer` adapter with `dual_cursor_scroll(amount)`.
 
+## DualCursorDebugOverlay
+
+Optional passive `Control` overlay for debugging player reachability. It draws cursor movement regions and `DualCursorNavigationPanel` capture bounds without affecting input or hit testing.
+
+Primary exports:
+
+- `enabled`: shows or hides the overlay.
+- `show_cursor_regions`: draws each cursor's movement regions.
+- `show_navigation_panels`: draws navigation panel bounds.
+- `show_labels`: draws node/player labels.
+- `player_1_color`, `player_2_color`, `shared_color`, `warning_color`: overlay colors.
+
 ## DualCursorNavigationPanel
 
 Controller-navigation zone for places where free cursor movement feels awkward. Add target controls to `navigation_targets`. When a cursor enters the panel, that player is captured into virtual focus, the cursor sprite is hidden, and left-stick navigation moves through the configured targets.
@@ -64,6 +76,8 @@ Entry denial is available through manager signal `navigation_denied(player_id, p
 
 ## Panel Builder
 
-The editor dock can configure a selected `Control` as a `DualCursorNavigationPanel`. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets default selection colors, adds a lightweight two-player cursor runtime when needed, persists default controller actions, and validates the selected panel. It does not overwrite unrelated custom scripts.
+The editor dock can configure a selected `Control` as a `DualCursorNavigationPanel`. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets theme preset selection colors, adds a lightweight two-player cursor runtime when needed, persists default controller actions, and validates the selected panel. It does not overwrite unrelated custom scripts.
 
 The generated `DualCursorRuntime` contains `DualCursorManager`, an invisible `CursorTravelRegion`, and two `DualCursor` nodes. It is safe to keep in game scenes and customize later.
+
+The dock can also apply two-controller profiles, apply theme presets, add or toggle `DualCursorDebugOverlay`, and validate unreachable private/shared navigation panels.

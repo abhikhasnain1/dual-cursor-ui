@@ -1,7 +1,14 @@
 class_name DualCursorInputSetup
 extends RefCounted
 
+const PROFILE_GENERIC_GAMEPAD := "generic_gamepad"
+const PROFILE_XBOX := "xbox"
+const PROFILE_PLAYSTATION := "playstation"
+
 static func ensure_default_actions(save_settings: bool = false) -> void:
+	ensure_profile(PROFILE_GENERIC_GAMEPAD, save_settings)
+
+static func ensure_profile(_profile_name: String, save_settings: bool = false) -> void:
 	_add_joy_button_action("interact_p1", 0, JOY_BUTTON_A)
 	_add_joy_button_action("interact_p2", 1, JOY_BUTTON_A)
 	_add_joy_button_action("cancel_p1", 0, JOY_BUTTON_B)
@@ -13,6 +20,18 @@ static func ensure_default_actions(save_settings: bool = false) -> void:
 		_persist_action("cancel_p1")
 		_persist_action("cancel_p2")
 		ProjectSettings.save()
+
+static func profile_names() -> PackedStringArray:
+	return PackedStringArray([PROFILE_GENERIC_GAMEPAD, PROFILE_XBOX, PROFILE_PLAYSTATION])
+
+static func profile_display_name(profile_name: String) -> String:
+	match profile_name:
+		PROFILE_XBOX:
+			return "Xbox / XInput"
+		PROFILE_PLAYSTATION:
+			return "PlayStation"
+		_:
+			return "Generic Gamepad"
 
 static func has_default_actions() -> bool:
 	return (

@@ -27,6 +27,8 @@ Project > Project Settings > Plugins > DualCursor UI
 9. Use **Panel Builder** on your own selected `Control` panels when you are ready to configure a real game UI.
 10. Use the **Use In Your Game** section in the dock for copyable GDScript examples.
 
+DualCursor UI v0.4.0 is still a two-controller workflow. It does not provide independent multi-mouse or multi-keyboard device routing.
+
 ## Connect A Button
 
 For standalone `DualCursorButton` nodes, open the Node dock and connect:
@@ -101,6 +103,16 @@ func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -
 6. Run the scene, move a cursor into the panel, navigate with the left stick, activate with A/Cross, and exit with B/Circle.
 
 Panel Builder will not overwrite a custom script. Use a plain `Control` node or an existing `DualCursorNavigationPanel`.
+
+## Debug Regions
+
+Click **Add/Toggle Debug Overlay** in the dock when a cursor cannot reach a panel or when a shared panel captures incorrectly. The overlay draws each cursor's movement regions and every navigation panel capture zone. It is disabled by default and does not change gameplay input.
+
+## Controller Profiles And Themes
+
+Use **Controller Profile** to create or repair two-controller select/cancel actions for generic gamepad, Xbox/XInput, or PlayStation-style controllers. Select remains A/Cross and cancel remains B/Circle.
+
+Use **Theme Preset** to apply Default Light, High Contrast, Soft Color, or Dark selection styling to a selected panel or generated runtime. High Contrast is the recommended accessibility preset when focus visibility is more important than visual subtlety.
 
 ## DualCursorRuntime
 

@@ -17,6 +17,10 @@ It checks:
 - Shared controls outside cursor movement regions.
 - Player-owned controls reachable by the wrong player's cursor.
 - Navigation panels with missing or invalid `navigation_targets`.
+- Navigation panels outside all cursor movement regions.
+- Private navigation panels unreachable by their owning player.
+- Shared simultaneous panels not reachable by both players.
+- Overlapping navigation panels with the same `hit_priority`.
 - Missing cancel actions used to leave controller-navigation panels.
 - Navigation panels with private, exclusive shared, or simultaneous shared access policies.
 

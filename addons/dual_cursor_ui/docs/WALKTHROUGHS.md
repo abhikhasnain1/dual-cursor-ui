@@ -164,6 +164,52 @@ func choose_dialogue_option(player_id: int, choice_id: String) -> void:
 
 For shared dialogue, set `owner_player_id = -1`. Use `ALLOW_MULTIPLE` when both players can choose at the same time, or `FIRST_PLAYER_LOCKS` when one player should control the choices until they exit.
 
+## Narrative And TTRPG-Style Events
+
+DualCursor UI should route player-aware UI events to your game state, not own your story database, dice rules, clocks, inventory, save data, or branching narrative. Use metadata on panel targets to keep that handoff explicit.
+
+```gdscript
+extends Node
+
+@export var narrative_panel: DualCursorNavigationPanel
+@export var clock_label: Label
+
+var progress_clock: int = 0
+
+func _ready() -> void:
+	narrative_panel.target_activated.connect(_on_narrative_target_activated)
+
+func _on_narrative_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	var choice_id := str(target.get_meta("choice_id", ""))
+	var event_id := str(target.get_meta("event_id", ""))
+	var skill_id := str(target.get_meta("skill_id", ""))
+
+	if not choice_id.is_empty():
+		choose_dialogue_option(player_id, choice_id)
+	elif not skill_id.is_empty():
+		request_skill_check(player_id, skill_id)
+	elif not event_id.is_empty():
+		confirm_shared_event(player_id, event_id)
+
+func choose_dialogue_option(player_id: int, choice_id: String) -> void:
+	print("Player %d chose dialogue branch %s" % [player_id + 1, choice_id])
+
+func request_skill_check(player_id: int, skill_id: String) -> void:
+	print("Player %d requested skill check %s" % [player_id + 1, skill_id])
+	progress_clock += 1
+	clock_label.text = "Clock: %d/6" % progress_clock
+
+func confirm_shared_event(player_id: int, event_id: String) -> void:
+	print("Player %d confirmed shared event %s" % [player_id + 1, event_id])
+```
+
+Recommended metadata keys:
+
+- `choice_id`: dialogue branch or response id.
+- `event_id`: shared narrative event id.
+- `skill_id`: dice or skill-check id owned by your game logic.
+- `inventory_action`: inventory/menu command id.
+
 ## Convert An Existing Menu
 
 1. Select a plain `Control` panel that contains child `Button` nodes.

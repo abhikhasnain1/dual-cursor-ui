@@ -43,6 +43,7 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 - `DualCursorButton`: button-like interactable with hover/select/deny feedback.
 - `DualCursorScrollArea`: `ScrollContainer` adapter for joystick scrolling.
 - `DualCursorNavigationPanel`: captures a cursor inside a panel and switches that player to ordered controller navigation, with private, exclusive shared, or simultaneous shared access.
+- `DualCursorDebugOverlay`: optional passive overlay for debugging cursor regions, shared reachability, and panel capture bounds.
 
 ## Shared Policies
 
@@ -57,8 +58,10 @@ The plugin adds a **DualCursor UI** dock to the editor. It can:
 
 - Create a ready-to-edit responsive two-player template scene.
 - Configure selected `Control` nodes as controller-navigation panels.
-- Set up default controller actions as part of scene creation.
-- Validate common scene setup mistakes.
+- Set up two-controller profiles for generic gamepads, Xbox/XInput, and PlayStation-style controllers.
+- Apply visual theme presets, including a high-contrast accessibility preset.
+- Add or toggle a debug overlay for movement regions and navigation panels.
+- Validate common scene setup mistakes, including unreachable private or shared panels.
 - Explain the next integration step for a new user.
 
 ## Common Signal
@@ -105,6 +108,8 @@ DualCursor uses Godot Input Map actions to know when each player selects a contr
 
 You can change these later in Project Settings > Input Map.
 
+DualCursor UI v0.4.0 remains scoped to two-controller local multiplayer. It does not promise independent multi-mouse or multi-keyboard device support.
+
 ## Navigation Panels
 
 Use `DualCursorNavigationPanel` for dense menus where free cursor movement is too awkward. When a cursor enters the panel, that player is captured into virtual focus and navigates the configured `navigation_targets` with the controller. Press the cursor's `cancel_action` to return to free cursor movement.
@@ -118,6 +123,12 @@ Select a `Control` node in your scene, choose one of the four access presets in 
 The generated `DualCursorRuntime` is the scene wiring for immediate gameplay testing: it contains the manager, two controller cursors, and an invisible full-viewport travel region. You can keep it in real scenes, move it, or customize it later; you only need to replace it if your game has a custom input or cursor-spawning architecture.
 
 To populate dialogue, create normal `Control` or `Button` rows, append their paths to `navigation_targets`, and listen to `target_activated` for the selected choice id.
+
+## Debug Overlay And Themes
+
+Use **Add/Toggle Debug Overlay** in the dock to draw cursor movement regions and navigation panel capture bounds. This helps diagnose why a player can or cannot enter a private or shared panel.
+
+Use **Theme Preset** to apply Default Light, High Contrast, Soft Color, or Dark selection/cursor styling to generated runtime nodes or selected navigation panels.
 
 ## Limitations
 

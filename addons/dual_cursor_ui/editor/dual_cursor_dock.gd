@@ -6,8 +6,11 @@ const MANAGER_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_ma
 const MANAGER_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_manager.gd")
 const CURSOR_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor.gd"
 const CURSOR_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor.gd")
+const DEBUG_OVERLAY_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_debug_overlay.gd"
+const DEBUG_OVERLAY_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_debug_overlay.gd")
 const NAVIGATION_PANEL_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd"
 const NAVIGATION_PANEL_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd")
+const DualCursorThemePresets := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_theme_presets.gd")
 const DEMO_SCENE_PATH := "res://addons/dual_cursor_ui/demos/two_player_menu_demo.tscn"
 const PANEL_OCCUPANCY_ALLOW_MULTIPLE := 0
 const PANEL_OCCUPANCY_FIRST_PLAYER_LOCKS := 1
@@ -99,10 +102,35 @@ func _on_dialogue_choice_selected(player_id: int, target: Control, cursor: Node)
 	var choice_id := str(target.get_meta("choice_id", ""))
 	print("Player %d chose %s" % [player_id + 1, choice_id])
 """
+const NARRATIVE_EVENT_EXAMPLE := """extends Node
+
+@export var narrative_panel: DualCursorNavigationPanel
+@export var clock_label: Label
+
+var progress_clock: int = 0
+
+func _ready() -> void:
+	narrative_panel.target_activated.connect(_on_narrative_target_activated)
+
+func _on_narrative_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	var choice_id := str(target.get_meta("choice_id", ""))
+	var event_id := str(target.get_meta("event_id", ""))
+	var skill_id := str(target.get_meta("skill_id", ""))
+
+	if not choice_id.is_empty():
+		print("P%d chose %s" % [player_id + 1, choice_id])
+	elif not skill_id.is_empty():
+		progress_clock += 1
+		clock_label.text = "Clock: %d/6" % progress_clock
+	elif not event_id.is_empty():
+		print("P%d confirmed %s" % [player_id + 1, event_id])
+"""
 
 var _plugin: EditorPlugin
 var _results: RichTextLabel
 var _panel_preset: OptionButton
+var _controller_profile: OptionButton
+var _theme_preset: OptionButton
 var _selected_panel_status: Label
 var _selected_target_status: Label
 
@@ -136,6 +164,33 @@ func _build_ui() -> void:
 	body.add_child(create_button)
 	body.add_child(_paragraph("Creates a complete playable template with private menu panels, private dialogue choices, exclusive shared panels, simultaneous shared panels, cursors, logging, and controller actions. The template adapts to the current viewport and does not require a fixed project window size."))
 
+	body.add_child(_section("Controller Profile"))
+	body.add_child(_paragraph("DualCursor UI v0.4.0 supports the two-controller workflow. Apply a profile to create or repair the player select/cancel actions."))
+	_controller_profile = OptionButton.new()
+	_controller_profile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for profile_name in DualCursorInputSetup.profile_names():
+		_controller_profile.add_item(DualCursorInputSetup.profile_display_name(profile_name))
+		_controller_profile.set_item_metadata(_controller_profile.get_item_count() - 1, profile_name)
+	body.add_child(_controller_profile)
+	var apply_profile_button := _button("Apply Controller Profile")
+	apply_profile_button.pressed.connect(_apply_controller_profile)
+	body.add_child(apply_profile_button)
+
+	body.add_child(_section("Theme Preset"))
+	body.add_child(_paragraph("Apply a visual preset to selected navigation panels or generated cursors. Use High Contrast when controller focus needs stronger visibility."))
+	_theme_preset = OptionButton.new()
+	_theme_preset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for preset_name in DualCursorThemePresets.preset_names():
+		_theme_preset.add_item(DualCursorThemePresets.display_name(preset_name))
+		_theme_preset.set_item_metadata(_theme_preset.get_item_count() - 1, preset_name)
+	body.add_child(_theme_preset)
+	var apply_panel_theme_button := _button("Apply Theme To Selected Panel")
+	apply_panel_theme_button.pressed.connect(_apply_theme_to_selected_panel)
+	body.add_child(apply_panel_theme_button)
+	var apply_scene_theme_button := _button("Apply Theme To Generated Runtime")
+	apply_scene_theme_button.pressed.connect(_apply_theme_to_generated_runtime)
+	body.add_child(apply_scene_theme_button)
+
 	body.add_child(_section("Panel Builder"))
 	body.add_child(_paragraph("Select one of your own Control panels, choose an access preset, then configure it for controller navigation. The builder also adds a lightweight two-player cursor runtime if the scene does not already have one."))
 	_selected_panel_status = _paragraph("Selected panel: none")
@@ -164,6 +219,9 @@ func _build_ui() -> void:
 	body.add_child(validate_panel_button)
 
 	body.add_child(_section("Validate Scene"))
+	var overlay_button := _button("Add/Toggle Debug Overlay")
+	overlay_button.pressed.connect(_toggle_debug_overlay)
+	body.add_child(overlay_button)
 	var validate_button := _button("Validate Current Scene")
 	validate_button.pressed.connect(_run_validation)
 	body.add_child(validate_button)
@@ -190,6 +248,11 @@ func _build_ui() -> void:
 		"Populate Dialogue Choices",
 		"Create normal Button or Control rows, append them to navigation_targets, and store your dialogue choice id in metadata.",
 		DIALOGUE_CHOICES_EXAMPLE
+	))
+	body.add_child(_guide_panel(
+		"Narrative And TTRPG Events",
+		"Route choice_id, skill_id, and event_id metadata into your own story, dice, clock, inventory, or location systems.",
+		NARRATIVE_EVENT_EXAMPLE
 	))
 	body.add_child(_guide_panel(
 		"Connect Buttons to Game Logic",
@@ -248,6 +311,75 @@ func _add_input_actions() -> void:
 		"`interact_p1` and `interact_p2` use A/Cross. `cancel_p1` and `cancel_p2` use B/Circle."
 	])
 
+func _apply_controller_profile() -> void:
+	var profile_name := _selected_controller_profile()
+	DualCursorInputSetup.ensure_profile(profile_name, true)
+	_show_results([
+		"[color=green]OK: Applied %s controller profile.[/color]" % DualCursorInputSetup.profile_display_name(profile_name),
+		"This creates or repairs two-controller select/cancel actions.",
+		"Select remains A/Cross. Cancel remains B/Circle."
+	])
+
+func _apply_theme_to_selected_panel() -> void:
+	var panel: Control = _get_selected_control()
+	if panel == null:
+		_show_results(["[color=red]Select a DualCursorNavigationPanel or plain panel first.[/color]"])
+		return
+
+	var script: Script = panel.get_script() as Script
+	if script == null or script.resource_path != NAVIGATION_PANEL_SCRIPT_PATH:
+		_show_results(["[color=red]%s is not a DualCursorNavigationPanel. Run Setup Selected Panel first.[/color]" % panel.name])
+		return
+
+	var preset_name := _selected_theme_preset()
+	DualCursorThemePresets.apply_to_navigation_panel(panel, preset_name)
+	_mark_scene_unsaved()
+	_show_results(["[color=green]OK: Applied %s theme to %s.[/color]" % [DualCursorThemePresets.display_name(preset_name), panel.name]])
+
+func _apply_theme_to_generated_runtime() -> void:
+	var root := _get_scene_root()
+	if root == null:
+		_show_results(["[color=yellow]No edited scene is open.[/color]"])
+		return
+
+	var preset_name := _selected_theme_preset()
+	for panel in _find_by_script_path(root, NAVIGATION_PANEL_SCRIPT_PATH):
+		if panel is Control:
+			DualCursorThemePresets.apply_to_navigation_panel(panel, preset_name)
+	for cursor in _find_by_script_path(root, CURSOR_SCRIPT_PATH):
+		DualCursorThemePresets.apply_to_cursor(cursor, int(cursor.get("player_id")), preset_name)
+	for node in _walk(root):
+		if node is BaseButton:
+			DualCursorThemePresets.apply_to_button(node as BaseButton, preset_name)
+		elif node is Panel or node is PanelContainer:
+			DualCursorThemePresets.apply_to_surface(node as Control, preset_name)
+
+	_mark_scene_unsaved()
+	_show_results(["[color=green]OK: Applied %s theme to generated DualCursor panels and cursors.[/color]" % DualCursorThemePresets.display_name(preset_name)])
+
+func _toggle_debug_overlay() -> void:
+	var root := _get_scene_root()
+	if root == null:
+		_show_results(["[color=yellow]No edited scene is open.[/color]"])
+		return
+
+	var overlay: Control = _find_first_by_script_path(root, DEBUG_OVERLAY_SCRIPT_PATH) as Control
+	var created := false
+	if overlay == null:
+		overlay = Control.new()
+		overlay.name = "DualCursorDebugOverlay"
+		overlay.set_script(DEBUG_OVERLAY_SCRIPT)
+		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		overlay.z_index = 4096
+		root.add_child(overlay)
+		_set_owner_recursive(overlay, root)
+		created = true
+
+	var next_enabled := true if created else not bool(overlay.get("enabled"))
+	overlay.set("enabled", next_enabled)
+	_mark_scene_unsaved()
+	_show_results(["[color=green]Debug overlay %s.[/color]" % ("enabled" if next_enabled else "disabled")])
+
 func _setup_selected_panel() -> void:
 	var panel: Control = _get_selected_control()
 	if panel == null:
@@ -280,14 +412,9 @@ func _setup_selected_panel() -> void:
 	panel.set("owner_player_id", _preset_owner_player_id(preset_id))
 	panel.set("occupancy_policy", _preset_occupancy_policy(preset_id))
 	panel.set("navigation_targets", target_paths)
-	panel.set("selection_width", 8.0)
-	panel.set("selection_padding", 2.0)
-	panel.set("player_selection_colors", PackedColorArray([
-		Color(0.0, 0.42, 0.78, 1.0),
-		Color(0.86, 0.28, 0.12, 1.0)
-	]))
+	DualCursorThemePresets.apply_to_navigation_panel(panel, _selected_theme_preset())
 
-	DualCursorInputSetup.ensure_default_actions(true)
+	DualCursorInputSetup.ensure_profile(_selected_controller_profile(), true)
 	var rig_messages: Array[String] = _ensure_cursor_runtime(panel)
 	_mark_scene_unsaved()
 	_refresh_selected_panel_info()
@@ -431,6 +558,18 @@ func _panel_preset_summary(panel: Control) -> String:
 		return "Shared Exclusive"
 	return "Shared Simultaneous"
 
+func _selected_controller_profile() -> String:
+	if _controller_profile == null or _controller_profile.selected < 0:
+		return DualCursorInputSetup.PROFILE_GENERIC_GAMEPAD
+	var metadata = _controller_profile.get_item_metadata(_controller_profile.selected)
+	return str(metadata)
+
+func _selected_theme_preset() -> String:
+	if _theme_preset == null or _theme_preset.selected < 0:
+		return DualCursorThemePresets.DEFAULT_LIGHT
+	var metadata = _theme_preset.get_item_metadata(_theme_preset.selected)
+	return str(metadata)
+
 func _mark_scene_unsaved() -> void:
 	if _plugin == null:
 		return
@@ -481,7 +620,26 @@ func _ensure_cursor_runtime(panel: Control) -> Array[String]:
 		lines.append("Added Player 1 cursor.")
 	if _ensure_runtime_cursor(rig, root, manager, travel_region, "Cursor2", 1, "interact_p2", "cancel_p2", Color(1.0, 0.45, 0.25, 1.0), panel):
 		lines.append("Added Player 2 cursor.")
+	if _ensure_debug_overlay(rig, root):
+		lines.append("Added disabled DualCursorDebugOverlay. Toggle it from the dock when debugging regions.")
 	return lines
+
+func _ensure_debug_overlay(rig: Control, scene_root: Node) -> bool:
+	var overlay: Control = _find_first_by_script_path(scene_root, DEBUG_OVERLAY_SCRIPT_PATH) as Control
+	if overlay:
+		return false
+
+	overlay = Control.new()
+	overlay.name = "DualCursorDebugOverlay"
+	overlay.set_script(DEBUG_OVERLAY_SCRIPT)
+	overlay.z_index = 4096
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.set("enabled", false)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.set_offsets_preset(Control.PRESET_FULL_RECT)
+	rig.add_child(overlay)
+	overlay.owner = scene_root
+	return true
 
 func _ensure_runtime_cursor(rig: Control, scene_root: Node, manager: Node, travel_region: Control, cursor_name: String, player_id: int, interact_action: String, cancel_action: String, color: Color, panel: Control) -> bool:
 	var cursor: Sprite2D = _find_cursor_by_player(scene_root, player_id)
@@ -503,6 +661,7 @@ func _ensure_runtime_cursor(rig: Control, scene_root: Node, manager: Node, trave
 	cursor.set("cancel_action", cancel_action)
 	cursor.set("fallback_cursor_color", color)
 	cursor.set("center_on_primary_region_at_ready", false)
+	DualCursorThemePresets.apply_to_cursor(cursor, player_id, _selected_theme_preset())
 	_place_cursor_near_panel(cursor, panel, player_id)
 	return created
 
@@ -573,7 +732,7 @@ func _run_validation() -> void:
 
 	if not navigation_panels.is_empty():
 		lines.append("[color=green]OK: %d controller-navigation panel(s) found.[/color]" % navigation_panels.size())
-		_validate_navigation_panels(navigation_panels, lines)
+		_validate_navigation_panels(navigation_panels, cursors, lines)
 
 	if not InputMap.has_action("interact_p1"):
 		lines.append("[color=red]Fix needed: Missing controller action interact_p1. Click Create Playable 2-Player Scene.[/color]")
@@ -669,19 +828,61 @@ func _validate_private_boundaries(cursors: Array, interactables: Array, lines: A
 			if _cursor_can_reach_control(cursor, interactable):
 				lines.append("[color=red]Fix needed: %s can reach %s, but that control belongs to player %d. Move the control or remove the overlapping cursor region.[/color]" % [cursor.name, interactable.name, owner_player_id + 1])
 
-func _validate_navigation_panels(navigation_panels: Array, lines: Array[String]) -> void:
-	for panel in navigation_panels:
+func _validate_navigation_panels(navigation_panels: Array, cursors: Array, lines: Array[String]) -> void:
+	for panel_index in navigation_panels.size():
+		var panel = navigation_panels[panel_index]
 		if not (panel is Control):
 			continue
+		var panel_control: Control = panel as Control
 		var target_paths: Array = panel.get("navigation_targets")
 		if target_paths.is_empty():
 			lines.append("[color=red]Fix needed: %s has no navigation_targets.[/color]" % panel.name)
-			continue
-		for target_path in target_paths:
-			if not (target_path is NodePath) or (target_path as NodePath).is_empty():
-				lines.append("[color=red]Fix needed: %s has an empty navigation target path.[/color]" % panel.name)
+		else:
+			for target_path in target_paths:
+				if not (target_path is NodePath) or (target_path as NodePath).is_empty():
+					lines.append("[color=red]Fix needed: %s has an empty navigation target path.[/color]" % panel.name)
+					continue
+				_validate_navigation_target(panel, target_path, lines)
+
+		_validate_navigation_panel_reachability(panel_control, cursors, lines)
+
+		for other_index in range(panel_index + 1, navigation_panels.size()):
+			var other: Control = navigation_panels[other_index] as Control
+			if other == null:
 				continue
-			_validate_navigation_target(panel, target_path, lines)
+			if panel_control.get_global_rect().intersects(other.get_global_rect()) and int(panel_control.get("hit_priority")) == int(other.get("hit_priority")):
+				lines.append("[color=yellow]Warning: Navigation panels %s and %s overlap with the same hit_priority. Increase hit_priority on the panel that should capture first.[/color]" % [panel_control.name, other.name])
+
+func _validate_navigation_panel_reachability(panel: Control, cursors: Array, lines: Array[String]) -> void:
+	if cursors.is_empty():
+		return
+
+	var owner_player_id := int(panel.get("owner_player_id"))
+	var reachable_players: PackedInt32Array = PackedInt32Array()
+	for cursor in cursors:
+		if _cursor_can_reach_control(cursor, panel):
+			reachable_players.append(int(cursor.get("player_id")))
+
+	if reachable_players.is_empty():
+		lines.append("[color=red]Fix needed: %s is outside every cursor movement region. Move it into a reachable region or add that region to a cursor's extra_region_node_paths.[/color]" % panel.name)
+		return
+
+	if owner_player_id >= 0:
+		if not _packed_int_array_has(reachable_players, owner_player_id):
+			lines.append("[color=red]Fix needed: %s belongs to Player %d but that player's cursor cannot reach it.[/color]" % [panel.name, owner_player_id + 1])
+		return
+
+	var occupancy_policy := int(panel.get("occupancy_policy"))
+	if occupancy_policy == PANEL_OCCUPANCY_ALLOW_MULTIPLE and reachable_players.size() < cursors.size():
+		lines.append("[color=yellow]Warning: Shared simultaneous panel %s is reachable by only %d cursor(s). Both players usually need access.[/color]" % [panel.name, reachable_players.size()])
+	elif occupancy_policy == PANEL_OCCUPANCY_FIRST_PLAYER_LOCKS and reachable_players.size() < cursors.size():
+		lines.append("[color=yellow]Warning: Shared exclusive panel %s is not reachable by every cursor. That may be intentional, but shared panels usually belong in shared space.[/color]" % panel.name)
+
+func _packed_int_array_has(values: PackedInt32Array, value: int) -> bool:
+	for item in values:
+		if item == value:
+			return true
+	return false
 
 func _validate_navigation_target(panel: Control, target_path: NodePath, lines: Array[String]) -> void:
 	var node: Node = panel.get_node_or_null(target_path)

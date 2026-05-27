@@ -21,6 +21,7 @@ var _manager = null
 var _missing_action_warnings: Dictionary = {}
 
 func _ready() -> void:
+	add_to_group("dual_cursor_cursor")
 	DualCursorInputSetup.ensure_default_actions(false)
 
 	if texture == null:
