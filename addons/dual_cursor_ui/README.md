@@ -43,6 +43,7 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 - `DualCursorButton`: button-like interactable with hover/select/deny feedback.
 - `DualCursorScrollArea`: `ScrollContainer` adapter for joystick scrolling.
 - `DualCursorNavigationPanel`: captures a cursor inside a panel and switches that player to ordered controller navigation, with private, exclusive shared, or simultaneous shared access.
+- `DualCursorGridNavigationPanel`: grid-based controller navigation for inventory, shop, skill, and tactical command panels.
 - `DualCursorDebugOverlay`: optional passive overlay for debugging cursor regions, shared reachability, and panel capture bounds.
 
 ## Shared Policies
@@ -108,7 +109,7 @@ DualCursor uses Godot Input Map actions to know when each player selects a contr
 
 You can change these later in Project Settings > Input Map.
 
-DualCursor UI v0.4.0 remains scoped to two-controller local multiplayer. It does not promise independent multi-mouse or multi-keyboard device support.
+DualCursor UI v0.5.0 remains scoped to two-controller local multiplayer. It does not promise independent multi-mouse or multi-keyboard device support.
 
 ## Navigation Panels
 
@@ -118,11 +119,13 @@ Set `owner_player_id` for player-only panels, or set `occupancy_policy` to `FIRS
 
 ## Panel Builder
 
-Select a `Control` node in your scene, choose one of the four access presets in the dock, then click **Setup Selected Panel**. The dock assigns `DualCursorNavigationPanel`, auto-detects child buttons as navigation targets, applies the preset, and adds a lightweight two-player cursor runtime if the scene does not already have one. The builder uses Player 1 Private, Player 2 Private, Shared Exclusive, and Shared Simultaneous presets.
+Select a `Control` node in your scene, choose one of the four access presets, choose List Panel or Grid Panel, then click **Setup Selected Panel**. The dock assigns `DualCursorNavigationPanel` or `DualCursorGridNavigationPanel`, auto-detects child buttons as navigation targets, applies the preset, and adds a lightweight two-player cursor runtime if the scene does not already have one.
 
 The generated `DualCursorRuntime` is the scene wiring for immediate gameplay testing: it contains the manager, two controller cursors, and an invisible full-viewport travel region. You can keep it in real scenes, move it, or customize it later; you only need to replace it if your game has a custom input or cursor-spawning architecture.
 
 To populate dialogue, create normal `Control` or `Button` rows, append their paths to `navigation_targets`, and listen to `target_activated` for the selected choice id.
+
+To build inventory, shop, skill, or tactical menus, use Grid Panel mode. Set the column count in the dock, store ids such as `item_id`, `shop_item_id`, `skill_id`, or `action_id` in target metadata, and handle selection through `target_activated`.
 
 ## Debug Overlay And Themes
 

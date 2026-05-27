@@ -4,6 +4,7 @@ extends Control
 
 const CURSOR_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor.gd"
 const NAVIGATION_PANEL_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd"
+const GRID_NAVIGATION_PANEL_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_grid_navigation_panel.gd"
 
 @export var enabled: bool = false:
 	set(value):
@@ -48,7 +49,9 @@ func _draw_cursor_regions() -> void:
 			_draw_global_rect(region.get_global_rect(), color, "P%d region" % [player_id + 1])
 
 func _draw_navigation_panels() -> void:
-	for panel in _find_by_script_path(_search_root(), NAVIGATION_PANEL_SCRIPT_PATH):
+	var panels := _find_by_script_path(_search_root(), NAVIGATION_PANEL_SCRIPT_PATH)
+	panels.append_array(_find_by_script_path(_search_root(), GRID_NAVIGATION_PANEL_SCRIPT_PATH))
+	for panel in panels:
 		if not (panel is Control) or not panel.is_visible_in_tree():
 			continue
 		var panel_control: Control = panel as Control

@@ -164,6 +164,49 @@ func choose_dialogue_option(player_id: int, choice_id: String) -> void:
 
 For shared dialogue, set `owner_player_id = -1`. Use `ALLOW_MULTIPLE` when both players can choose at the same time, or `FIRST_PLAYER_LOCKS` when one player should control the choices until they exit.
 
+## Inventory, Shop, Skill, Or Tactical Grids
+
+Use `DualCursorGridNavigationPanel` when targets are arranged as cells. Store game ids in metadata and route `target_activated` into your own inventory, shop, skill, or tactical systems.
+
+```gdscript
+extends Node
+
+@export var grid_panel: DualCursorGridNavigationPanel
+
+func _ready() -> void:
+	grid_panel.columns = 4
+	grid_panel.wrap_columns = true
+	grid_panel.wrap_rows = false
+	grid_panel.target_activated.connect(_on_grid_target_activated)
+
+func _on_grid_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	var item_id := str(target.get_meta("item_id", ""))
+	var shop_item_id := str(target.get_meta("shop_item_id", ""))
+	var skill_id := str(target.get_meta("skill_id", ""))
+	var action_id := str(target.get_meta("action_id", ""))
+
+	if not item_id.is_empty():
+		use_item(player_id, item_id)
+	elif not shop_item_id.is_empty():
+		buy_or_inspect_shop_item(player_id, shop_item_id)
+	elif not skill_id.is_empty():
+		open_skill(player_id, skill_id)
+	elif not action_id.is_empty():
+		choose_tactical_action(player_id, action_id)
+
+func use_item(player_id: int, item_id: String) -> void:
+	print("Player %d used %s" % [player_id + 1, item_id])
+
+func buy_or_inspect_shop_item(player_id: int, shop_item_id: String) -> void:
+	print("Player %d selected shop item %s" % [player_id + 1, shop_item_id])
+
+func open_skill(player_id: int, skill_id: String) -> void:
+	print("Player %d opened skill %s" % [player_id + 1, skill_id])
+
+func choose_tactical_action(player_id: int, action_id: String) -> void:
+	print("Player %d chose action %s" % [player_id + 1, action_id])
+```
+
 ## Narrative And TTRPG-Style Events
 
 DualCursor UI should route player-aware UI events to your game state, not own your story database, dice rules, clocks, inventory, save data, or branching narrative. Use metadata on panel targets to keep that handoff explicit.

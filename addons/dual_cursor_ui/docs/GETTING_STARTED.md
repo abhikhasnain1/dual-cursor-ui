@@ -27,7 +27,7 @@ Project > Project Settings > Plugins > DualCursor UI
 9. Use **Panel Builder** on your own selected `Control` panels when you are ready to configure a real game UI.
 10. Use the **Use In Your Game** section in the dock for copyable GDScript examples.
 
-DualCursor UI v0.4.0 is still a two-controller workflow. It does not provide independent multi-mouse or multi-keyboard device routing.
+DualCursor UI v0.5.0 is still a two-controller workflow. It does not provide independent multi-mouse or multi-keyboard device routing.
 
 ## Connect A Button
 
@@ -98,11 +98,24 @@ func _on_panel_target_activated(player_id: int, target: Control, cursor: Node) -
 1. Build a normal Godot `Control` panel with child buttons.
 2. Select the panel node in the Scene dock.
 3. In the DualCursor UI dock, choose a Panel Builder preset: Player 1 Private, Player 2 Private, Shared Exclusive, or Shared Simultaneous.
-4. Click **Setup Selected Panel**. The builder also adds two cursors and a manager if the scene does not already have them.
-5. Click **Validate Selected Panel**.
-6. Run the scene, move a cursor into the panel, navigate with the left stick, activate with A/Cross, and exit with B/Circle.
+4. Choose **List Panel** for linear menus or **Grid Panel** for inventories, shops, skill trees, and tactical commands.
+5. For Grid Panel, set the column count.
+6. Click **Setup Selected Panel**. The builder also adds two cursors and a manager if the scene does not already have them.
+7. Click **Validate Selected Panel**.
+8. Run the scene, move a cursor into the panel, navigate with the left stick, activate with A/Cross, and exit with B/Circle.
 
 Panel Builder will not overwrite a custom script. Use a plain `Control` node or an existing `DualCursorNavigationPanel`.
+
+## Grid Panels
+
+Use `DualCursorGridNavigationPanel` when options are arranged as cells instead of a single list. Left/right moves between neighboring cells. Up/down moves by the configured column count.
+
+Recommended metadata keys:
+
+- `item_id`: inventory item.
+- `shop_item_id`: shop item or service.
+- `skill_id`: skill tree node.
+- `action_id`: tactical command.
 
 ## Debug Regions
 

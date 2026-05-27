@@ -10,10 +10,14 @@ const DEBUG_OVERLAY_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cur
 const DEBUG_OVERLAY_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_debug_overlay.gd")
 const NAVIGATION_PANEL_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd"
 const NAVIGATION_PANEL_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd")
+const GRID_NAVIGATION_PANEL_SCRIPT_PATH := "res://addons/dual_cursor_ui/scripts/dual_cursor_grid_navigation_panel.gd"
+const GRID_NAVIGATION_PANEL_SCRIPT := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_grid_navigation_panel.gd")
 const DualCursorThemePresets := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_theme_presets.gd")
 const DEMO_SCENE_PATH := "res://addons/dual_cursor_ui/demos/two_player_menu_demo.tscn"
 const PANEL_OCCUPANCY_ALLOW_MULTIPLE := 0
 const PANEL_OCCUPANCY_FIRST_PLAYER_LOCKS := 1
+const PANEL_TYPE_LIST := 0
+const PANEL_TYPE_GRID := 1
 const CONNECT_BUTTON_EXAMPLE := """extends Node
 
 @export var choice_button: DualCursorButton
@@ -129,6 +133,8 @@ func _on_narrative_target_activated(player_id: int, target: Control, cursor: Nod
 var _plugin: EditorPlugin
 var _results: RichTextLabel
 var _panel_preset: OptionButton
+var _panel_type: OptionButton
+var _grid_columns: SpinBox
 var _controller_profile: OptionButton
 var _theme_preset: OptionButton
 var _selected_panel_status: Label
@@ -165,7 +171,7 @@ func _build_ui() -> void:
 	body.add_child(_paragraph("Creates a complete playable template with private menu panels, private dialogue choices, exclusive shared panels, simultaneous shared panels, cursors, logging, and controller actions. The template adapts to the current viewport and does not require a fixed project window size."))
 
 	body.add_child(_section("Controller Profile"))
-	body.add_child(_paragraph("DualCursor UI v0.4.0 supports the two-controller workflow. Apply a profile to create or repair the player select/cancel actions."))
+	body.add_child(_paragraph("DualCursor UI v0.5.0 supports the two-controller workflow. Apply a profile to create or repair the player select/cancel actions."))
 	_controller_profile = OptionButton.new()
 	_controller_profile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for profile_name in DualCursorInputSetup.profile_names():
@@ -192,7 +198,7 @@ func _build_ui() -> void:
 	body.add_child(apply_scene_theme_button)
 
 	body.add_child(_section("Panel Builder"))
-	body.add_child(_paragraph("Select one of your own Control panels, choose an access preset, then configure it for controller navigation. The builder also adds a lightweight two-player cursor runtime if the scene does not already have one."))
+	body.add_child(_paragraph("Select one of your own Control panels, choose an access preset, choose List or Grid, then configure it for controller navigation. Grid panels are intended for inventories, shops, skill trees, and tactical commands."))
 	_selected_panel_status = _paragraph("Selected panel: none")
 	body.add_child(_selected_panel_status)
 	_selected_target_status = _paragraph("Detected targets: 0")
@@ -205,6 +211,21 @@ func _build_ui() -> void:
 	_panel_preset.add_item("Shared Exclusive", 2)
 	_panel_preset.add_item("Shared Simultaneous", 3)
 	body.add_child(_panel_preset)
+
+	_panel_type = OptionButton.new()
+	_panel_type.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_panel_type.add_item("List Panel", PANEL_TYPE_LIST)
+	_panel_type.add_item("Grid Panel", PANEL_TYPE_GRID)
+	body.add_child(_panel_type)
+
+	_grid_columns = SpinBox.new()
+	_grid_columns.min_value = 1
+	_grid_columns.max_value = 12
+	_grid_columns.step = 1
+	_grid_columns.value = 4
+	_grid_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_grid_columns.tooltip_text = "Grid columns used when Panel Type is Grid Panel."
+	body.add_child(_grid_columns)
 
 	var refresh_panel_button := _button("Refresh Selected Panel Info")
 	refresh_panel_button.pressed.connect(_refresh_selected_panel_info)
@@ -327,8 +348,8 @@ func _apply_theme_to_selected_panel() -> void:
 		return
 
 	var script: Script = panel.get_script() as Script
-	if script == null or script.resource_path != NAVIGATION_PANEL_SCRIPT_PATH:
-		_show_results(["[color=red]%s is not a DualCursorNavigationPanel. Run Setup Selected Panel first.[/color]" % panel.name])
+	if script == null or not _is_supported_panel_script(script):
+		_show_results(["[color=red]%s is not a DualCursor navigation panel. Run Setup Selected Panel first.[/color]" % panel.name])
 		return
 
 	var preset_name := _selected_theme_preset()
@@ -344,6 +365,9 @@ func _apply_theme_to_generated_runtime() -> void:
 
 	var preset_name := _selected_theme_preset()
 	for panel in _find_by_script_path(root, NAVIGATION_PANEL_SCRIPT_PATH):
+		if panel is Control:
+			DualCursorThemePresets.apply_to_navigation_panel(panel, preset_name)
+	for panel in _find_by_script_path(root, GRID_NAVIGATION_PANEL_SCRIPT_PATH):
 		if panel is Control:
 			DualCursorThemePresets.apply_to_navigation_panel(panel, preset_name)
 	for cursor in _find_by_script_path(root, CURSOR_SCRIPT_PATH):
@@ -388,10 +412,10 @@ func _setup_selected_panel() -> void:
 		return
 
 	var script: Script = panel.get_script() as Script
-	if script and script.resource_path != NAVIGATION_PANEL_SCRIPT_PATH:
+	if script and not _is_supported_panel_script(script):
 		_show_results([
 			"[color=red]Panel Builder will not overwrite %s's existing script.[/color]" % panel.name,
-			"Use a plain Control node or an existing DualCursorNavigationPanel."
+			"Use a plain Control node, DualCursorNavigationPanel, or DualCursorGridNavigationPanel."
 		])
 		_refresh_selected_panel_info()
 		return
@@ -405,13 +429,20 @@ func _setup_selected_panel() -> void:
 		_refresh_selected_panel_info()
 		return
 
-	if script == null:
-		panel.set_script(NAVIGATION_PANEL_SCRIPT)
+	var panel_type := _selected_panel_type()
+	var selected_script := _panel_script_for_type(panel_type)
+	if script == null or script.resource_path != selected_script.resource_path:
+		panel.set_script(selected_script)
 
 	var preset_id: int = _panel_preset.get_selected_id() if _panel_preset else 0
 	panel.set("owner_player_id", _preset_owner_player_id(preset_id))
 	panel.set("occupancy_policy", _preset_occupancy_policy(preset_id))
 	panel.set("navigation_targets", target_paths)
+	if panel.get_script() and (panel.get_script() as Script).resource_path == GRID_NAVIGATION_PANEL_SCRIPT_PATH:
+		panel.set("columns", _selected_grid_columns())
+		panel.set("wrap_columns", true)
+		panel.set("wrap_rows", false)
+		panel.set("skip_disabled_targets", true)
 	DualCursorThemePresets.apply_to_navigation_panel(panel, _selected_theme_preset())
 
 	DualCursorInputSetup.ensure_profile(_selected_controller_profile(), true)
@@ -420,6 +451,7 @@ func _setup_selected_panel() -> void:
 	_refresh_selected_panel_info()
 	var result_lines: Array[String] = [
 		"[color=green]OK: Configured %s as %s.[/color]" % [panel.name, _preset_name(preset_id)],
+		"Panel type: %s" % _panel_type_name(panel),
 		"Navigation targets: %d" % target_paths.size(),
 		"Run Validate Selected Panel, then run the scene and move a cursor into this panel."
 	]
@@ -435,13 +467,13 @@ func _validate_selected_panel() -> void:
 
 	var lines: Array[String] = []
 	var script: Script = panel.get_script() as Script
-	if script == null or script.resource_path != NAVIGATION_PANEL_SCRIPT_PATH:
-		lines.append("[color=red]Fix needed: %s is not a DualCursorNavigationPanel. Click Setup Selected Panel.[/color]" % panel.name)
+	if script == null or not _is_supported_panel_script(script):
+		lines.append("[color=red]Fix needed: %s is not a DualCursor navigation panel. Click Setup Selected Panel.[/color]" % panel.name)
 		_show_results(lines)
 		_refresh_selected_panel_info()
 		return
 
-	lines.append("[color=green]OK: %s uses DualCursorNavigationPanel.[/color]" % panel.name)
+	lines.append("[color=green]OK: %s uses %s.[/color]" % [panel.name, _panel_type_name(panel)])
 	var target_paths: Array = panel.get("navigation_targets")
 	if target_paths.is_empty():
 		lines.append("[color=red]Fix needed: %s has no navigation_targets.[/color]" % panel.name)
@@ -454,6 +486,8 @@ func _validate_selected_panel() -> void:
 			_validate_navigation_target(panel, target_path, lines)
 
 	lines.append("[color=green]Preset: %s.[/color]" % _panel_preset_summary(panel))
+	if script.resource_path == GRID_NAVIGATION_PANEL_SCRIPT_PATH:
+		_validate_grid_panel(panel, lines)
 	_show_results(lines)
 	_refresh_selected_panel_info()
 
@@ -470,7 +504,12 @@ func _refresh_selected_panel_info() -> void:
 	var script: Script = panel.get_script() as Script
 	var script_status: String = "plain Control"
 	if script:
-		script_status = "DualCursorNavigationPanel" if script.resource_path == NAVIGATION_PANEL_SCRIPT_PATH else "custom script"
+		if script.resource_path == NAVIGATION_PANEL_SCRIPT_PATH:
+			script_status = "DualCursorNavigationPanel"
+		elif script.resource_path == GRID_NAVIGATION_PANEL_SCRIPT_PATH:
+			script_status = "DualCursorGridNavigationPanel"
+		else:
+			script_status = "custom script"
 	_selected_panel_status.text = "Selected panel: %s (%s)" % [panel.name, script_status]
 	_selected_target_status.text = "Detected targets: %d" % _detect_navigation_target_paths(panel).size()
 
@@ -557,6 +596,28 @@ func _panel_preset_summary(panel: Control) -> String:
 	if occupancy_policy == PANEL_OCCUPANCY_FIRST_PLAYER_LOCKS:
 		return "Shared Exclusive"
 	return "Shared Simultaneous"
+
+func _is_supported_panel_script(script: Script) -> bool:
+	return script.resource_path == NAVIGATION_PANEL_SCRIPT_PATH or script.resource_path == GRID_NAVIGATION_PANEL_SCRIPT_PATH
+
+func _selected_panel_type() -> int:
+	if _panel_type == null:
+		return PANEL_TYPE_LIST
+	return _panel_type.get_selected_id()
+
+func _selected_grid_columns() -> int:
+	if _grid_columns == null:
+		return 4
+	return max(1, int(_grid_columns.value))
+
+func _panel_script_for_type(panel_type: int) -> Script:
+	return GRID_NAVIGATION_PANEL_SCRIPT if panel_type == PANEL_TYPE_GRID else NAVIGATION_PANEL_SCRIPT
+
+func _panel_type_name(panel: Control) -> String:
+	var script: Script = panel.get_script() as Script
+	if script and script.resource_path == GRID_NAVIGATION_PANEL_SCRIPT_PATH:
+		return "Grid Panel"
+	return "List Panel"
 
 func _selected_controller_profile() -> String:
 	if _controller_profile == null or _controller_profile.selected < 0:
@@ -703,6 +764,7 @@ func _run_validation() -> void:
 	var managers := _find_by_script_path(root, MANAGER_SCRIPT_PATH)
 	var cursors := _find_by_script_path(root, CURSOR_SCRIPT_PATH)
 	var navigation_panels := _find_by_script_path(root, NAVIGATION_PANEL_SCRIPT_PATH)
+	navigation_panels.append_array(_find_by_script_path(root, GRID_NAVIGATION_PANEL_SCRIPT_PATH))
 	var interactables := _find_interactables(root)
 
 	if managers.is_empty():
@@ -844,6 +906,9 @@ func _validate_navigation_panels(navigation_panels: Array, cursors: Array, lines
 					continue
 				_validate_navigation_target(panel, target_path, lines)
 
+		var script: Script = panel_control.get_script() as Script
+		if script and script.resource_path == GRID_NAVIGATION_PANEL_SCRIPT_PATH:
+			_validate_grid_panel(panel_control, lines)
 		_validate_navigation_panel_reachability(panel_control, cursors, lines)
 
 		for other_index in range(panel_index + 1, navigation_panels.size()):
@@ -877,6 +942,27 @@ func _validate_navigation_panel_reachability(panel: Control, cursors: Array, lin
 		lines.append("[color=yellow]Warning: Shared simultaneous panel %s is reachable by only %d cursor(s). Both players usually need access.[/color]" % [panel.name, reachable_players.size()])
 	elif occupancy_policy == PANEL_OCCUPANCY_FIRST_PLAYER_LOCKS and reachable_players.size() < cursors.size():
 		lines.append("[color=yellow]Warning: Shared exclusive panel %s is not reachable by every cursor. That may be intentional, but shared panels usually belong in shared space.[/color]" % panel.name)
+
+func _validate_grid_panel(panel: Control, lines: Array[String]) -> void:
+	var columns := int(panel.get("columns"))
+	if columns < 1:
+		lines.append("[color=red]Fix needed: %s grid columns must be at least 1.[/color]" % panel.name)
+		return
+
+	var target_paths: Array = panel.get("navigation_targets")
+	if target_paths.is_empty():
+		return
+
+	if target_paths.size() < columns:
+		lines.append("[color=yellow]Warning: %s has fewer targets than columns. Reduce columns or add more grid cells.[/color]" % panel.name)
+
+	if bool(panel.get("skip_disabled_targets")):
+		return
+
+	for target_path in target_paths:
+		var target: BaseButton = panel.get_node_or_null(target_path) as BaseButton
+		if target and target.disabled:
+			lines.append("[color=yellow]Warning: %s contains disabled target %s and skip_disabled_targets is off.[/color]" % [panel.name, target.name])
 
 func _packed_int_array_has(values: PackedInt32Array, value: int) -> bool:
 	for item in values:

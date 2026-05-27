@@ -4,6 +4,7 @@ extends Panel
 const ManagerScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_manager.gd")
 const CursorScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor.gd")
 const NavigationPanelScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd")
+const GridNavigationPanelScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_grid_navigation_panel.gd")
 const DualCursorInputSetup := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_input_setup.gd")
 const MIN_LAYOUT_SIZE: Vector2 = Vector2(1280, 720)
 const COLOR_APP_BG: Color = Color(0.94, 0.965, 0.985, 1.0)
@@ -171,6 +172,19 @@ func _build_demo() -> void:
 		DualCursorNavigationPanel.OccupancyPolicy.ALLOW_MULTIPLE,
 		["Attack", "Defend", "Assist"]
 	)
+	_grid_navigation_panel(
+		shared_region,
+		"SharedShopGrid",
+		Vector2(20, 320),
+		Vector2(380, 210),
+		"Shared shop grid",
+		"Both players can browse actions in a grid.",
+		-1,
+		DualCursorNavigationPanel.OccupancyPolicy.ALLOW_MULTIPLE,
+		["Buy", "Sell", "Repair", "Talk", "Gift", "Leave"],
+		3,
+		"shop_item_id"
+	)
 
 	_status = _label("Status: move into a panel to switch from cursor movement to controller navigation. Press B/Circle to exit.", Vector2(30, 410), Vector2(800, 42), 15)
 	_status.name = "Status"
@@ -189,7 +203,7 @@ func _build_demo() -> void:
 	_event_log.add_theme_stylebox_override("normal", _style_box(Color(1.0, 1.0, 1.0, 0.78), Color(0.76, 0.83, 0.91, 1.0), 1, 10))
 	root.add_child(_event_log)
 
-	var help: Label = _label("Private panels reject the other player. Dialogue choices are private. Shared exclusive locks to one player. Shared simultaneous allows both players.", Vector2(870, 430), Vector2(380, 90), 15)
+	var help: Label = _label("Private panels reject the other player. Dialogue choices are private. Shared exclusive locks to one player. Shared simultaneous and grid panels allow both players.", Vector2(870, 430), Vector2(380, 90), 15)
 	help.name = "Help"
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.add_theme_color_override("font_color", COLOR_MUTED_TEXT)
@@ -299,6 +313,13 @@ func _layout_demo() -> void:
 		Vector2(gap + shared_col_w + two_col_gap, panel_top_y),
 		Vector2(shared_col_w, top_panel_h)
 	)
+	var shared_grid_y: float = panel_top_y + top_panel_h + panel_stack_gap
+	var shared_grid_h: float = max(138.0, region_h - shared_grid_y - panel_stack_gap)
+	_layout_grid_panel(
+		"DemoRoot/SharedRegion/SharedShopGrid",
+		Vector2(gap, shared_grid_y),
+		Vector2(shared_inner_w, shared_grid_h)
+	)
 
 	call_deferred("_refresh_cursors")
 
@@ -363,6 +384,33 @@ func _layout_navigation_panel(path: String, position_value: Vector2, size_value:
 		if label:
 			label.position = Vector2(10, 0)
 			label.size = Vector2(target.size.x - 20, target.size.y)
+
+func _layout_grid_panel(path: String, position_value: Vector2, size_value: Vector2) -> void:
+	var panel: Control = get_node_or_null(path) as Control
+	if panel == null:
+		return
+	_layout_navigation_panel(path, position_value, size_value)
+
+	var first_target_index: int = 3
+	var target_count: int = max(1, panel.get_child_count() - first_target_index)
+	var columns: int = max(1, int(panel.get("columns")))
+	var rows: int = int(ceil(float(target_count) / float(columns)))
+	var gap: float = 6.0
+	var start_y: float = 68.0
+	var available_w: float = size_value.x - 20.0
+	var available_h: float = size_value.y - start_y - 10.0
+	var cell_w: float = (available_w - gap * float(columns - 1)) / float(columns)
+	var cell_h: float = max(30.0, (available_h - gap * float(rows - 1)) / float(rows))
+	for child_index in range(first_target_index, panel.get_child_count()):
+		var target: Control = panel.get_child(child_index) as Control
+		if target == null:
+			continue
+		var target_i: int = child_index - first_target_index
+		var column: int = target_i % columns
+		var row: int = int(target_i / columns)
+		target.position = Vector2(10.0 + float(column) * (cell_w + gap), start_y + float(row) * (cell_h + gap))
+		target.size = Vector2(cell_w, cell_h)
+		target.pivot_offset = target.size * 0.5
 
 func _panel_content_height(target_count: int, row_h: float) -> float:
 	var row_gap: float = 6.0
@@ -434,6 +482,21 @@ func _navigation_panel(parent: Control, node_name: String, position_value: Vecto
 		target_paths.append(panel.get_path_to(target))
 
 	panel.set("navigation_targets", target_paths)
+	return panel
+
+func _grid_navigation_panel(parent: Control, node_name: String, position_value: Vector2, size_value: Vector2, title: String, description: String, owner_player_id: int, occupancy_policy: int, choices: Array, columns: int, metadata_key: String) -> Control:
+	var panel: Control = _navigation_panel(parent, node_name, position_value, size_value, title, description, owner_player_id, occupancy_policy, choices, true)
+	var target_paths: Array[NodePath] = panel.get("navigation_targets")
+	panel.set_script(GridNavigationPanelScript)
+	panel.set("columns", columns)
+	panel.set("wrap_columns", true)
+	panel.set("wrap_rows", false)
+	panel.set("skip_disabled_targets", true)
+	panel.set("navigation_targets", target_paths)
+	for target_path in target_paths:
+		var target: Control = panel.get_node_or_null(target_path) as Control
+		if target:
+			target.set_meta(metadata_key, str(target.name).to_snake_case())
 	return panel
 
 func _dialogue_choice(text: String, size_value: Vector2) -> Control:

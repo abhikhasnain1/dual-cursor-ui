@@ -20,6 +20,9 @@ It checks:
 - Navigation panels outside all cursor movement regions.
 - Private navigation panels unreachable by their owning player.
 - Shared simultaneous panels not reachable by both players.
+- Grid navigation panels with invalid column counts.
+- Grid navigation panels with too few targets for their column count.
+- Disabled grid targets when `skip_disabled_targets` is off.
 - Overlapping navigation panels with the same `hit_priority`.
 - Missing cancel actions used to leave controller-navigation panels.
 - Navigation panels with private, exclusive shared, or simultaneous shared access policies.

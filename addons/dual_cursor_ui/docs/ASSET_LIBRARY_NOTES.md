@@ -8,7 +8,7 @@ Suggested listing:
 - Category: Tools
 - License: MIT
 - Godot version: 4.6+
-- Description: Local multiplayer cursor interaction, controller-navigation panels, region debugging, and theme presets for Godot Control-based interfaces.
+- Description: Local multiplayer cursor interaction, list/grid controller-navigation panels, region debugging, and theme presets for Godot Control-based interfaces.
 
 Do not describe this addon as native multifocus. It is a custom local multiplayer interaction layer over `Control` nodes.
 
@@ -22,12 +22,13 @@ Do not describe this addon as native multifocus. It is a custom local multiplaye
 - In a clean scene, create a `Control` or `HBoxContainer` with child `Button` nodes, run Panel Builder, and confirm the generated runtime, controller actions, panel entry, and `target_activated` path work.
 - Toggle the debug overlay and confirm it draws cursor movement regions and navigation panel capture bounds.
 - Apply each controller profile and theme preset at least once.
+- Build and validate a Grid Panel with three or four columns.
 - Run Validate Current Scene.
 - Run the created responsive template scene.
 - Include README, LICENSE, docs, and demo scene.
 - Use a square PNG/JPG icon for the Asset Library listing.
 - Use direct raw GitHub image URLs for the icon and screenshots:
-  `https://raw.githubusercontent.com/abhikhasnain1/dual-cursor-ui/v0.4.0/asset-library/icon.png`
+  `https://raw.githubusercontent.com/abhikhasnain1/dual-cursor-ui/v0.5.0/asset-library/icon.png`
 - Use matching raw screenshot URLs:
-  `https://raw.githubusercontent.com/abhikhasnain1/dual-cursor-ui/v0.4.0/asset-library/full1.png`
+  `https://raw.githubusercontent.com/abhikhasnain1/dual-cursor-ui/v0.5.0/asset-library/full1.png`
 - Confirm the download archive does not include `.godot`, `.gitignore`, `.gitattributes`, root README/LICENSE, or `asset-library`.

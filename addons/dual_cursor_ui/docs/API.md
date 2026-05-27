@@ -74,9 +74,22 @@ After any activation path, the panel emits `target_activated(player_id, target, 
 
 Entry denial is available through manager signal `navigation_denied(player_id, panel, reason)`.
 
+## DualCursorGridNavigationPanel
+
+Grid-based controller-navigation panel for inventories, shops, skill trees, and tactical command menus. It implements the same manager-facing methods and signals as `DualCursorNavigationPanel`, so `target_activated(player_id, target, cursor)` remains the main game-logic signal.
+
+Primary exports:
+
+- `columns`: number of grid columns, minimum `1`.
+- `wrap_rows`: whether up/down wraps to the opposite row.
+- `wrap_columns`: whether left/right wraps within the current row.
+- `skip_disabled_targets`: whether disabled buttons are skipped during navigation.
+
+Left/right moves by one target. Up/down moves by `columns`. Use metadata such as `item_id`, `shop_item_id`, `skill_id`, or `action_id` on targets to route selections into game logic.
+
 ## Panel Builder
 
-The editor dock can configure a selected `Control` as a `DualCursorNavigationPanel`. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets theme preset selection colors, adds a lightweight two-player cursor runtime when needed, persists default controller actions, and validates the selected panel. It does not overwrite unrelated custom scripts.
+The editor dock can configure a selected `Control` as a list or grid navigation panel. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets theme preset selection colors, adds a lightweight two-player cursor runtime when needed, persists default controller actions, and validates the selected panel. It does not overwrite unrelated custom scripts.
 
 The generated `DualCursorRuntime` contains `DualCursorManager`, an invisible `CursorTravelRegion`, and two `DualCursor` nodes. It is safe to keep in game scenes and customize later.
 
