@@ -89,9 +89,14 @@ func get_active_player_ids() -> PackedInt32Array:
 		player_ids.append(int(player_id))
 	return player_ids
 
-func navigate_player(player_id: int, direction: Vector2) -> void:
+func navigate_player(player_id: int, direction: Vector2, cursor: Node = null) -> void:
 	if not _selected_indices.has(player_id):
 		return
+
+	var selected_target := get_selected_target(player_id)
+	if selected_target and selected_target.has_method("dual_cursor_navigate"):
+		if selected_target.dual_cursor_navigate(player_id, direction, cursor):
+			return
 
 	var targets := get_navigation_targets()
 	if targets.is_empty():
@@ -124,6 +129,12 @@ func activate_player(player_id: int, cursor: Node) -> Control:
 
 	if target.has_method("dual_cursor_activate"):
 		target.dual_cursor_activate(player_id, cursor)
+	elif target.has_method("adjust_by_player"):
+		target.adjust_by_player(player_id, 1.0, cursor)
+	elif target.has_method("select_next_by_player"):
+		target.select_next_by_player(player_id, 1, cursor)
+	elif target.has_method("change_tab_by_player"):
+		target.change_tab_by_player(player_id, 1, cursor)
 	elif target.has_method("on_cursor_interact"):
 		target.on_cursor_interact(cursor)
 	elif target is BaseButton:
@@ -138,7 +149,7 @@ func get_selected_target(player_id: int) -> Control:
 	if targets.is_empty() or not _selected_indices.has(player_id):
 		return null
 
-	var index := clamp(int(_selected_indices[player_id]), 0, targets.size() - 1)
+	var index: int = int(clamp(int(_selected_indices[player_id]), 0, targets.size() - 1))
 	_selected_indices[player_id] = index
 	return targets[index]
 

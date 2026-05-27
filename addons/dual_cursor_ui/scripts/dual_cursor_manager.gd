@@ -187,7 +187,7 @@ func process_navigation_input(cursor: Node, delta: float) -> void:
 			timer = float(panel.get("repeat_interval")) if "repeat_interval" in panel else 0.12
 
 	if should_navigate and panel.has_method("navigate_player"):
-		panel.navigate_player(player_id, direction)
+		panel.navigate_player(player_id, direction, cursor)
 
 	_set_player_state(player_id, "navigation_repeat_direction", direction)
 	_set_player_state(player_id, "navigation_repeat_timer", timer)

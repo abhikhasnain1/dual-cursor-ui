@@ -10,6 +10,7 @@ It is designed for split-screen and co-op games where multiple local players nee
 - Split-screen dialogue choice panels.
 - Shared confirmation prompts.
 - Dice, card, inventory, or map interfaces.
+- Narrative interaction routing for choices, checks, clocks, inventories, and shared events.
 - Co-op UI where each player can point at a different `Control` at the same time.
 
 ## Quick Start
@@ -29,6 +30,12 @@ The fastest way to see the plugin working is to open:
 res://addons/dual_cursor_ui/demos/two_player_menu_demo.tscn
 ```
 
+To test every generated example panel in one responsive scene, use **Open All Example Panels Demo** in the dock or open:
+
+```text
+res://addons/dual_cursor_ui/demos/all_example_panels_demo.tscn
+```
+
 For copyable programming examples, open the **Use In Your Game** section in the editor dock or read:
 
 ```text
@@ -43,8 +50,12 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 - `DualCursorButton`: button-like interactable with hover/select/deny feedback.
 - `DualCursorScrollArea`: `ScrollContainer` adapter for joystick scrolling.
 - `DualCursorNavigationPanel`: captures a cursor inside a panel and switches that player to ordered controller navigation, with private, exclusive shared, or simultaneous shared access.
-- `DualCursorGridNavigationPanel`: grid-based controller navigation for inventory, shop, skill, and tactical command panels.
+- `DualCursorGridNavigationPanel`: row/column controller navigation for inventory, shop, skill, and tactical command panels.
+- `DualCursorDialoguePanel`: populates player-aware dialogue choices from dictionaries and emits selected choice ids.
+- `DualCursorNarrativeRouter`: normalizes choice, skill check, clock, inventory, and shared-event metadata into one signal.
+- `DualCursorEventMonitor`: optional in-game event log for hover, entry, denial, activation, dialogue, and narrative routing while testing scenes.
 - `DualCursorDebugOverlay`: optional passive overlay for debugging cursor regions, shared reachability, and panel capture bounds.
+- Control adapters: player-aware CheckBox, HSlider, VSlider, OptionButton, TabContainer, and SpinBox variants for richer in-panel widgets.
 
 ## Shared Policies
 
@@ -58,10 +69,15 @@ res://addons/dual_cursor_ui/docs/WALKTHROUGHS.md
 The plugin adds a **DualCursor UI** dock to the editor. It can:
 
 - Create a ready-to-edit responsive two-player template scene.
+- Open a responsive all-example-panels demo scene.
 - Configure selected `Control` nodes as controller-navigation panels.
+- Create small example panels for adapter controls, shop grids, and character setup.
+- Edit common target metadata keys such as `action`, `choice_id`, `event_id`, `skill_id`, `clock_id`, and `shop_item_id`.
+- Generate copyable wiring snippets for the selected panel, adapter, button, dialogue helper, or narrative router.
 - Set up two-controller profiles for generic gamepads, Xbox/XInput, and PlayStation-style controllers.
 - Apply visual theme presets, including a high-contrast accessibility preset.
 - Add or toggle a debug overlay for movement regions and navigation panels.
+- Add or toggle a runtime event monitor that shows the latest player-aware input and routing events inside the running scene.
 - Validate common scene setup mistakes, including unreachable private or shared panels.
 - Explain the next integration step for a new user.
 
@@ -109,7 +125,7 @@ DualCursor uses Godot Input Map actions to know when each player selects a contr
 
 You can change these later in Project Settings > Input Map.
 
-DualCursor UI v0.5.0 remains scoped to two-controller local multiplayer. It does not promise independent multi-mouse or multi-keyboard device support.
+DualCursor UI v0.7.0 remains scoped to two-controller local multiplayer. It does not promise independent multi-mouse or multi-keyboard device support.
 
 ## Navigation Panels
 
@@ -125,11 +141,21 @@ The generated `DualCursorRuntime` is the scene wiring for immediate gameplay tes
 
 To populate dialogue, create normal `Control` or `Button` rows, append their paths to `navigation_targets`, and listen to `target_activated` for the selected choice id.
 
-To build inventory, shop, skill, or tactical menus, use Grid Panel mode. Set the column count in the dock, store ids such as `item_id`, `shop_item_id`, `skill_id`, or `action_id` in target metadata, and handle selection through `target_activated`.
+Use List Panel mode for vertical or horizontal menus where focus should move one target at a time. Use Grid Panel mode when targets are arranged in rows and columns. Set the column count in the dock, store ids such as `item_id`, `shop_item_id`, `skill_id`, or `action_id` in target metadata, and handle selection through `target_activated`.
+
+For richer panels, attach adapter scripts such as `DualCursorToggleAdapter`, `DualCursorSliderAdapter`, `DualCursorVerticalSliderAdapter`, `DualCursorOptionAdapter`, `DualCursorTabAdapter`, or `DualCursorSpinBoxAdapter` to native Godot controls. They emit player-aware signals and can be used as navigation targets.
+
+Horizontal adapters such as sliders, spin boxes, and option buttons consume left/right input while selected. Up/down remains panel navigation, so settings-style panels do not trap the player inside a value control.
+
+For narrative-heavy games, use `DualCursorDialoguePanel` to populate choices from dictionaries and `DualCursorNarrativeRouter` to route metadata such as `choice_id`, `skill_id`, `clock_id`, `inventory_action`, and `event_id` into your own game state.
+
+Use **Target Metadata** in the dock to inspect or edit the selected node's common metadata keys. Use **Panel Wiring Assistant** to copy the signal handler that matches the selected node. These tools are meant to reduce setup ambiguity; your game still owns the actual inventory, dialogue, clock, or quest state.
 
 ## Debug Overlay And Themes
 
 Use **Add/Toggle Debug Overlay** in the dock to draw cursor movement regions and navigation panel capture bounds. This helps diagnose why a player can or cannot enter a private or shared panel.
+
+Use **Add/Toggle Runtime Event Monitor** when a scene runs but game logic is not responding as expected. It adds a `DualCursorEventMonitor` overlay that records which player entered a panel, activated a target, was denied, selected a dialogue choice, or triggered a narrative-router event.
 
 Use **Theme Preset** to apply Default Light, High Contrast, Soft Color, or Dark selection/cursor styling to generated runtime nodes or selected navigation panels.
 

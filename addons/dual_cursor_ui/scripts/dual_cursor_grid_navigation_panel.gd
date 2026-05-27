@@ -6,16 +6,21 @@ extends DualCursorNavigationPanel
 @export var wrap_columns: bool = true
 @export var skip_disabled_targets: bool = true
 
-func navigate_player(player_id: int, direction: Vector2) -> void:
+func navigate_player(player_id: int, direction: Vector2, cursor: Node = null) -> void:
 	if not _selected_indices.has(player_id):
 		return
+
+	var selected_target := get_selected_target(player_id)
+	if selected_target and selected_target.has_method("dual_cursor_navigate"):
+		if selected_target.dual_cursor_navigate(player_id, direction, cursor):
+			return
 
 	var targets := get_navigation_targets()
 	if targets.is_empty():
 		exit_player(player_id)
 		return
 
-	var current := clamp(int(_selected_indices[player_id]), 0, targets.size() - 1)
+	var current: int = int(clamp(int(_selected_indices[player_id]), 0, targets.size() - 1))
 	var next := _next_index(current, direction, targets)
 	if next == current:
 		return

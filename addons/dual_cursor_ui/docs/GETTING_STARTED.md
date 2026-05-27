@@ -24,10 +24,15 @@ Project > Project Settings > Plugins > DualCursor UI
 6. Move each cursor with the matching controller's left stick.
 7. Press A/Cross to activate a button.
 8. Move into any private or shared panel to switch from free cursor movement to controller navigation. Press B/Circle to exit it.
-9. Use **Panel Builder** on your own selected `Control` panels when you are ready to configure a real game UI.
-10. Use the **Use In Your Game** section in the dock for copyable GDScript examples.
+9. Try the shared settings adapter panel to see normal Godot widgets emit player-aware events.
+10. Use **Panel Builder** on your own selected `Control` panels when you are ready to configure a real game UI.
+11. Use **Target Metadata** to add ids such as `action`, `choice_id`, `event_id`, `skill_id`, or `shop_item_id` to selected targets.
+12. Use **Panel Wiring Assistant** to copy the handler snippet for the selected panel, button, adapter, dialogue helper, or narrative router.
+13. Use **Open All Example Panels Demo** to test every example panel in one responsive full-screen scene.
+14. Use the dock's **Example Panels** buttons when you want small editable starting points for settings, shop grids, character setup, dialogue, clocks, or shared events.
+15. Use the **Use In Your Game** section in the dock for copyable GDScript examples.
 
-DualCursor UI v0.5.0 is still a two-controller workflow. It does not provide independent multi-mouse or multi-keyboard device routing.
+DualCursor UI v0.7.0 is still a two-controller workflow. It does not provide independent multi-mouse or multi-keyboard device routing.
 
 ## Connect A Button
 
@@ -116,6 +121,47 @@ Recommended metadata keys:
 - `shop_item_id`: shop item or service.
 - `skill_id`: skill tree node.
 - `action_id`: tactical command.
+
+## Control Adapters
+
+Use adapter scripts when a panel target should behave like a native widget and still report which player changed it. Add adapted controls to a List or Grid panel's `navigation_targets`.
+
+- `DualCursorToggleAdapter`: player-aware `CheckBox`.
+- `DualCursorSliderAdapter`: player-aware `HSlider`.
+- `DualCursorVerticalSliderAdapter`: player-aware `VSlider`.
+- `DualCursorOptionAdapter`: player-aware `OptionButton`.
+- `DualCursorTabAdapter`: player-aware `TabContainer`.
+- `DualCursorSpinBoxAdapter`: player-aware `SpinBox`.
+
+While selected, compatible direction input adjusts the widget instead of moving panel focus. For example, left/right changes a horizontal slider or option selector; up/down changes a vertical slider.
+
+SpinBox and OptionButton adapters are horizontal inside list panels: left decreases or moves to the previous option, right increases or moves to the next option, and up/down still moves to neighboring panel targets.
+
+## List Panels vs Grid Panels
+
+Use **List Panel** when your targets are a dialogue list, pause menu, or settings menu. Controller movement advances through the targets in order.
+
+Use **Grid Panel** when your targets are arranged in rows and columns, such as an inventory, shop, skill tree, or tactical command board. Left/right changes columns; up/down changes rows.
+
+## Narrative Helpers
+
+Use `DualCursorDialoguePanel` when dialogue choices come from data. Call `set_choices()` with dictionaries that include `id` and `text`, then connect `choice_selected(player_id, choice_id, choice_data, cursor)`.
+
+Use `DualCursorNarrativeRouter` when different panels should report through one signal. Add metadata such as `choice_id`, `skill_id`, `clock_id`, `inventory_action`, or `event_id` to targets, then call `route_panel_target(player_id, target, cursor)` from `target_activated`.
+
+## Metadata And Wiring
+
+Select a panel target, adapter, dialogue helper, or narrative router in the Scene dock. The **Target Metadata** section shows common metadata keys and lets you apply or clear the selected key without opening the Inspector metadata editor.
+
+The **Panel Wiring Assistant** reads the selected node and generates a matching GDScript handler. Use it to see which signal to connect and which metadata keys your game logic should read. The generated snippets are examples; keep your real inventory, dialogue, clock, skill, or quest state in your own game scripts.
+
+## Runtime Event Monitor
+
+Click **Add/Toggle Runtime Event Monitor** when testing a scene. It adds a `DualCursorEventMonitor` overlay that records the latest hover, navigation entry, denial, activation, dialogue choice, and narrative-router events. This is useful when a button appears selectable but your game script is not receiving the event you expected.
+
+## All Example Panels Demo
+
+Use **Open All Example Panels Demo** in the dock or open `res://addons/dual_cursor_ui/demos/all_example_panels_demo.tscn`. This demo lays out the settings adapter, shop grid, character setup, dialogue, shared event, and clock examples in one responsive scene with a shared event log.
 
 ## Debug Regions
 

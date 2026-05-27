@@ -23,6 +23,10 @@ It checks:
 - Grid navigation panels with invalid column counts.
 - Grid navigation panels with too few targets for their column count.
 - Disabled grid targets when `skip_disabled_targets` is off.
+- Adapter controls with player ownership or disabled state through existing interactable checks.
+- Dialogue panels with generated navigation targets.
+- Dialogue panel targets without `choice_id` metadata.
+- Narrative-style targets with `event_type` metadata but no routable id metadata.
 - Overlapping navigation panels with the same `hit_priority`.
 - Missing cancel actions used to leave controller-navigation panels.
 - Navigation panels with private, exclusive shared, or simultaneous shared access policies.

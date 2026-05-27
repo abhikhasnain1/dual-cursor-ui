@@ -207,6 +207,39 @@ func choose_tactical_action(player_id: int, action_id: String) -> void:
 	print("Player %d chose action %s" % [player_id + 1, action_id])
 ```
 
+## Player-Aware Control Adapters
+
+Use adapter scripts when a player needs to change a normal Godot widget inside a DualCursor panel.
+
+```gdscript
+extends Node
+
+@export var ready_toggle: DualCursorToggleAdapter
+@export var volume_slider: DualCursorSliderAdapter
+@export var category_options: DualCursorOptionAdapter
+@export var quantity: DualCursorSpinBoxAdapter
+
+func _ready() -> void:
+	ready_toggle.toggled_by_player.connect(_on_ready_toggled)
+	volume_slider.value_changed_by_player.connect(_on_volume_changed)
+	category_options.option_selected_by_player.connect(_on_category_selected)
+	quantity.value_changed_by_player.connect(_on_quantity_changed)
+
+func _on_ready_toggled(player_id: int, pressed: bool, cursor: Node) -> void:
+	print("Player %d ready: %s" % [player_id + 1, pressed])
+
+func _on_volume_changed(player_id: int, value: float, cursor: Node) -> void:
+	print("Player %d set volume to %s" % [player_id + 1, value])
+
+func _on_category_selected(player_id: int, index: int, cursor: Node) -> void:
+	print("Player %d selected category %d" % [player_id + 1, index])
+
+func _on_quantity_changed(player_id: int, value: float, cursor: Node) -> void:
+	print("Player %d quantity: %s" % [player_id + 1, value])
+```
+
+Adapters can be used directly under free cursor movement or as targets inside `DualCursorNavigationPanel` and `DualCursorGridNavigationPanel`.
+
 ## Narrative And TTRPG-Style Events
 
 DualCursor UI should route player-aware UI events to your game state, not own your story database, dice rules, clocks, inventory, save data, or branching narrative. Use metadata on panel targets to keep that handoff explicit.
@@ -252,6 +285,49 @@ Recommended metadata keys:
 - `event_id`: shared narrative event id.
 - `skill_id`: dice or skill-check id owned by your game logic.
 - `inventory_action`: inventory/menu command id.
+
+## Dialogue Panel Helper
+
+Use `DualCursorDialoguePanel` when dialogue choices come from game data and you want the panel to build its own choice rows.
+
+```gdscript
+extends Node
+
+@export var dialogue_panel: DualCursorDialoguePanel
+
+func _ready() -> void:
+	dialogue_panel.choice_selected.connect(_on_choice_selected)
+	dialogue_panel.owner_player_id = 0
+	dialogue_panel.set_choices([
+		{"id": "ask_ruins", "text": "Ask about the ruins.", "event_type": "choice"},
+		{"id": "request_supplies", "text": "Request supplies.", "event_type": "choice"},
+		{"id": "leave", "text": "Leave the conversation.", "event_type": "choice"}
+	])
+
+func _on_choice_selected(player_id: int, choice_id: String, choice_data: Dictionary, cursor: Node) -> void:
+	print("Player %d chose %s" % [player_id + 1, choice_id])
+```
+
+## Narrative Router Helper
+
+Use `DualCursorNarrativeRouter` when different panels should report choices, checks, clocks, inventory commands, and shared events through one signal.
+
+```gdscript
+extends Node
+
+@export var panel: DualCursorNavigationPanel
+@export var router: DualCursorNarrativeRouter
+
+func _ready() -> void:
+	panel.target_activated.connect(_on_target_activated)
+	router.narrative_event.connect(_on_narrative_event)
+
+func _on_target_activated(player_id: int, target: Control, cursor: Node) -> void:
+	router.route_panel_target(player_id, target, cursor)
+
+func _on_narrative_event(player_id: int, event_type: String, event_id: String, payload: Dictionary, cursor: Node) -> void:
+	print("Player %d triggered %s %s" % [player_id + 1, event_type, event_id])
+```
 
 ## Convert An Existing Menu
 

@@ -5,6 +5,11 @@ const ManagerScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_
 const CursorScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor.gd")
 const NavigationPanelScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_navigation_panel.gd")
 const GridNavigationPanelScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_grid_navigation_panel.gd")
+const DialoguePanelScript := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_dialogue_panel.gd")
+const ToggleAdapterScript := preload("res://addons/dual_cursor_ui/scripts/adapters/dual_cursor_toggle_adapter.gd")
+const SliderAdapterScript := preload("res://addons/dual_cursor_ui/scripts/adapters/dual_cursor_slider_adapter.gd")
+const OptionAdapterScript := preload("res://addons/dual_cursor_ui/scripts/adapters/dual_cursor_option_adapter.gd")
+const SpinBoxAdapterScript := preload("res://addons/dual_cursor_ui/scripts/adapters/dual_cursor_spin_box_adapter.gd")
 const DualCursorInputSetup := preload("res://addons/dual_cursor_ui/scripts/dual_cursor_input_setup.gd")
 const MIN_LAYOUT_SIZE: Vector2 = Vector2(1280, 720)
 const COLOR_APP_BG: Color = Color(0.94, 0.965, 0.985, 1.0)
@@ -113,7 +118,7 @@ func _build_demo() -> void:
 		DualCursorNavigationPanel.OccupancyPolicy.ALLOW_MULTIPLE,
 		["P1 Inventory", "P1 Skill", "P1 Ready"]
 	)
-	var p1_dialogue_panel: Control = _navigation_panel(
+	var p1_dialogue_panel: Control = _dialogue_panel(
 		p1_region,
 		"P1DialoguePanel",
 		Vector2(20, 300),
@@ -122,8 +127,11 @@ func _build_demo() -> void:
 		"Player 1 navigates choices without a cursor.",
 		0,
 		DualCursorNavigationPanel.OccupancyPolicy.ALLOW_MULTIPLE,
-		["Ask about the ruins.", "Request supplies.", "Leave conversation."],
-		false
+		[
+			{"id": "p1_ask_ruins", "text": "Ask about the ruins.", "event_type": "choice"},
+			{"id": "p1_request_supplies", "text": "Request supplies.", "event_type": "choice"},
+			{"id": "p1_leave", "text": "Leave conversation.", "event_type": "choice"}
+		]
 	)
 	p1_dialogue_panel.set("selection_color", COLOR_P1_ACCENT)
 	_navigation_panel(
@@ -137,7 +145,7 @@ func _build_demo() -> void:
 		DualCursorNavigationPanel.OccupancyPolicy.ALLOW_MULTIPLE,
 		["P2 Inventory", "P2 Skill", "P2 Ready"]
 	)
-	var p2_dialogue_panel: Control = _navigation_panel(
+	var p2_dialogue_panel: Control = _dialogue_panel(
 		p2_region,
 		"P2DialoguePanel",
 		Vector2(20, 300),
@@ -146,8 +154,11 @@ func _build_demo() -> void:
 		"Player 2 navigates choices without a cursor.",
 		1,
 		DualCursorNavigationPanel.OccupancyPolicy.ALLOW_MULTIPLE,
-		["Ask about the ruins.", "Request supplies.", "Leave conversation."],
-		false
+		[
+			{"id": "p2_ask_ruins", "text": "Ask about the ruins.", "event_type": "choice"},
+			{"id": "p2_request_supplies", "text": "Request supplies.", "event_type": "choice"},
+			{"id": "p2_leave", "text": "Leave conversation.", "event_type": "choice"}
+		]
 	)
 	p2_dialogue_panel.set("selection_color", COLOR_P2_ACCENT)
 	_navigation_panel(
@@ -185,6 +196,14 @@ func _build_demo() -> void:
 		3,
 		"shop_item_id"
 	)
+	_adapter_panel(
+		shared_region,
+		"SharedSettingsAdapters",
+		Vector2(20, 540),
+		Vector2(380, 170),
+		"Shared settings adapters",
+		"Native controls report which player changed them."
+	)
 
 	_status = _label("Status: move into a panel to switch from cursor movement to controller navigation. Press B/Circle to exit.", Vector2(30, 410), Vector2(800, 42), 15)
 	_status.name = "Status"
@@ -203,7 +222,7 @@ func _build_demo() -> void:
 	_event_log.add_theme_stylebox_override("normal", _style_box(Color(1.0, 1.0, 1.0, 0.78), Color(0.76, 0.83, 0.91, 1.0), 1, 10))
 	root.add_child(_event_log)
 
-	var help: Label = _label("Private panels reject the other player. Dialogue choices are private. Shared exclusive locks to one player. Shared simultaneous and grid panels allow both players.", Vector2(870, 430), Vector2(380, 90), 15)
+	var help: Label = _label("Private panels reject the other player. List panels move through a menu. Grid panels move by rows and columns. Adapter controls are normal Godot widgets that emit player-aware signals.", Vector2(870, 430), Vector2(380, 110), 15)
 	help.name = "Help"
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.add_theme_color_override("font_color", COLOR_MUTED_TEXT)
@@ -214,7 +233,7 @@ func _build_demo() -> void:
 
 	_layout_demo()
 	call_deferred("_refresh_cursors")
-	_log("Demo ready. Enter a panel with either cursor, press A/Cross to activate, B/Circle to exit.")
+	_log("Demo ready. Try list panels, the shop grid, and the shared settings adapter panel. Press A/Cross to activate, B/Circle to exit.")
 
 func _layout_demo() -> void:
 	var root: Control = get_node_or_null("DemoRoot") as Control
@@ -314,11 +333,17 @@ func _layout_demo() -> void:
 		Vector2(shared_col_w, top_panel_h)
 	)
 	var shared_grid_y: float = panel_top_y + top_panel_h + panel_stack_gap
-	var shared_grid_h: float = max(138.0, region_h - shared_grid_y - panel_stack_gap)
+	var adapter_h: float = _panel_content_height(4, 30.0)
+	var shared_grid_h: float = max(118.0, region_h - shared_grid_y - adapter_h - panel_stack_gap * 2.0)
 	_layout_grid_panel(
 		"DemoRoot/SharedRegion/SharedShopGrid",
 		Vector2(gap, shared_grid_y),
 		Vector2(shared_inner_w, shared_grid_h)
+	)
+	_layout_navigation_panel(
+		"DemoRoot/SharedRegion/SharedSettingsAdapters",
+		Vector2(gap, shared_grid_y + shared_grid_h + panel_stack_gap),
+		Vector2(shared_inner_w, adapter_h)
 	)
 
 	call_deferred("_refresh_cursors")
@@ -499,6 +524,125 @@ func _grid_navigation_panel(parent: Control, node_name: String, position_value: 
 			target.set_meta(metadata_key, str(target.name).to_snake_case())
 	return panel
 
+func _dialogue_panel(parent: Control, node_name: String, position_value: Vector2, size_value: Vector2, title: String, description: String, owner_player_id: int, occupancy_policy: int, dialogue_choices: Array) -> Control:
+	var panel: Control = Control.new()
+	panel.name = node_name
+	panel.position = position_value
+	panel.size = size_value
+	panel.set_script(DialoguePanelScript)
+	parent.add_child(panel)
+
+	panel.set("owner_player_id", owner_player_id)
+	panel.set("occupancy_policy", occupancy_policy)
+	panel.set("hit_priority", 50)
+	panel.set("selection_width", 8.0)
+	panel.set("selection_padding", 2.0)
+	panel.set("player_selection_colors", PackedColorArray([COLOR_P1_ACCENT, COLOR_P2_ACCENT]))
+
+	var backing: Panel = Panel.new()
+	backing.name = "Background"
+	backing.position = Vector2.ZERO
+	backing.size = size_value
+	backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backing.add_theme_stylebox_override("panel", _style_box(COLOR_SURFACE, Color(0.77, 0.83, 0.91, 1.0), 1, 12))
+	panel.add_child(backing)
+
+	var title_label: Label = _label(title, Vector2(10, 8), Vector2(size_value.x - 20, 26), 14)
+	title_label.add_theme_color_override("font_color", COLOR_TEXT)
+	panel.add_child(title_label)
+
+	var description_label: Label = _label(description, Vector2(10, 32), Vector2(size_value.x - 20, 36), 12)
+	description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description_label.add_theme_color_override("font_color", COLOR_MUTED_TEXT)
+	panel.add_child(description_label)
+	panel.set("choice_start_y", 68.0)
+	panel.set("choice_row_height", 30.0)
+	panel.set("choice_row_gap", 6.0)
+	panel.call("set_choices", dialogue_choices)
+	var target_paths: Array = panel.get("navigation_targets")
+	for target_path in target_paths:
+		var target: Button = panel.get_node_or_null(target_path) as Button
+		if target:
+			_apply_button_theme(target)
+	panel.connect("choice_selected", Callable(self, "_on_dialogue_choice_selected"))
+	return panel
+
+func _adapter_panel(parent: Control, node_name: String, position_value: Vector2, size_value: Vector2, title: String, description: String) -> Control:
+	var panel: Control = Control.new()
+	panel.name = node_name
+	panel.position = position_value
+	panel.size = size_value
+	panel.set_script(NavigationPanelScript)
+	parent.add_child(panel)
+
+	panel.set("owner_player_id", -1)
+	panel.set("occupancy_policy", DualCursorNavigationPanel.OccupancyPolicy.ALLOW_MULTIPLE)
+	panel.set("hit_priority", 50)
+	panel.set("selection_width", 8.0)
+	panel.set("selection_padding", 2.0)
+	panel.set("player_selection_colors", PackedColorArray([COLOR_P1_ACCENT, COLOR_P2_ACCENT]))
+
+	var backing: Panel = Panel.new()
+	backing.name = "Background"
+	backing.size = size_value
+	backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backing.add_theme_stylebox_override("panel", _style_box(COLOR_SURFACE, Color(0.77, 0.83, 0.91, 1.0), 1, 12))
+	panel.add_child(backing)
+
+	var title_label: Label = _label(title, Vector2(10, 8), Vector2(size_value.x - 20, 26), 14)
+	title_label.add_theme_color_override("font_color", COLOR_TEXT)
+	panel.add_child(title_label)
+
+	var description_label: Label = _label(description, Vector2(10, 32), Vector2(size_value.x - 20, 36), 12)
+	description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description_label.add_theme_color_override("font_color", COLOR_MUTED_TEXT)
+	panel.add_child(description_label)
+
+	var target_paths: Array[NodePath] = []
+	var ready: CheckBox = CheckBox.new()
+	ready.name = "ReadyToggle"
+	ready.text = "Ready toggle"
+	ready.set_script(ToggleAdapterScript)
+	_apply_button_theme(ready)
+	ready.connect("toggled_by_player", Callable(self, "_on_adapter_toggle_changed"))
+	panel.add_child(ready)
+	target_paths.append(panel.get_path_to(ready))
+
+	var volume: HSlider = HSlider.new()
+	volume.name = "VolumeSlider"
+	volume.min_value = 0.0
+	volume.max_value = 100.0
+	volume.step = 5.0
+	volume.value = 50.0
+	volume.set_script(SliderAdapterScript)
+	volume.connect("value_changed_by_player", Callable(self, "_on_adapter_value_changed").bind("volume"))
+	panel.add_child(volume)
+	target_paths.append(panel.get_path_to(volume))
+
+	var category: OptionButton = OptionButton.new()
+	category.name = "CategoryOptions"
+	category.add_item("Dialogue")
+	category.add_item("Inventory")
+	category.add_item("Skills")
+	category.set_script(OptionAdapterScript)
+	category.connect("option_selected_by_player", Callable(self, "_on_adapter_option_selected"))
+	panel.add_child(category)
+	target_paths.append(panel.get_path_to(category))
+
+	var quantity: SpinBox = SpinBox.new()
+	quantity.name = "QuantitySpinBox"
+	quantity.min_value = 1.0
+	quantity.max_value = 9.0
+	quantity.step = 1.0
+	quantity.value = 1.0
+	quantity.set_script(SpinBoxAdapterScript)
+	quantity.connect("value_changed_by_player", Callable(self, "_on_adapter_value_changed").bind("quantity"))
+	panel.add_child(quantity)
+	target_paths.append(panel.get_path_to(quantity))
+
+	panel.set("navigation_targets", target_paths)
+	return panel
+
 func _dialogue_choice(text: String, size_value: Vector2) -> Control:
 	var row: Control = Control.new()
 	row.size = size_value
@@ -583,6 +727,22 @@ func _on_navigation_denied(player_id: int, panel: Control, reason: String) -> vo
 func _on_navigation_target_activated(player_id: int, panel: Control, target: Control) -> void:
 	_flash_target(target, player_id)
 	_log("P%d activated %s > %s" % [player_id + 1, panel.name, target.name])
+	if target.has_meta("event_type"):
+		var event_type: String = str(target.get_meta("event_type"))
+		var event_id: String = str(target.get_meta("choice_id", target.get_meta("event_id", target.get_meta("skill_id", target.name))))
+		_log("P%d narrative %s: %s" % [player_id + 1, event_type, event_id])
+
+func _on_dialogue_choice_selected(player_id: int, choice_id: String, choice_data: Dictionary, cursor: Node) -> void:
+	_log("P%d dialogue choice: %s" % [player_id + 1, choice_id])
+
+func _on_adapter_toggle_changed(player_id: int, pressed: bool, cursor: Node) -> void:
+	_log("P%d changed ReadyToggle to %s" % [player_id + 1, pressed])
+
+func _on_adapter_value_changed(player_id: int, value: float, cursor: Node, label: String) -> void:
+	_log("P%d changed %s to %s" % [player_id + 1, label, value])
+
+func _on_adapter_option_selected(player_id: int, index: int, cursor: Node) -> void:
+	_log("P%d selected CategoryOptions index %d" % [player_id + 1, index])
 
 func _human_reason(reason: String) -> String:
 	if reason.begins_with("occupied_by_player_"):

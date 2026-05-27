@@ -87,10 +87,59 @@ Primary exports:
 
 Left/right moves by one target. Up/down moves by `columns`. Use metadata such as `item_id`, `shop_item_id`, `skill_id`, or `action_id` on targets to route selections into game logic.
 
+## DualCursorDialoguePanel
+
+Dialogue-focused navigation panel that populates choices from dictionaries and emits the selected choice id.
+
+- `set_choices(choices: Array[Dictionary])`: clears existing generated choices and creates new button rows.
+- `clear_choices()`: removes generated choices and clears `navigation_targets`.
+- Signal: `choice_selected(player_id, choice_id, choice_data, cursor)`.
+
+Choice dictionaries should include `id` and `text`. Extra keys are copied to button metadata so they can also be routed through `DualCursorNarrativeRouter`.
+
+## DualCursorNarrativeRouter
+
+Lightweight router for converting target metadata into one normalized signal. It does not store story state, roll dice, update clocks, or choose branches.
+
+- `route_panel_target(player_id, target, cursor)`: reads metadata from a target and emits `narrative_event`.
+- `route_event(player_id, event_type, event_id, payload, cursor)`: emits an explicit narrative event.
+- Signal: `narrative_event(player_id, event_type, event_id, payload, cursor)`.
+
+Recognized metadata keys include `choice_id`, `skill_id`, `clock_id`, `inventory_action`, `event_id`, and optional `event_type`.
+
+## DualCursorEventMonitor
+
+Optional testing overlay that logs player-aware runtime events directly inside the scene. It is intended for integration debugging, not as a shipping UI.
+
+Primary exports:
+
+- `enabled`: shows or hides the monitor and controls whether it records events.
+- `max_events`: maximum log entries to retain.
+- `show_hover_events`, `show_navigation_events`, `show_activation_events`, `show_denial_events`, `show_narrative_events`: event filters.
+
+Primary methods:
+
+- `clear_events()`: removes existing log lines.
+- `log_event(message)`: appends a custom message.
+- `refresh_bindings()`: reconnects to managers, navigation panels, dialogue panels, and narrative routers in the current scene.
+
+## Control Adapters
+
+Attach these scripts to native Godot controls when a panel needs richer widgets than buttons. They can be free-cursor targets or `navigation_targets` inside list/grid panels.
+
+- `DualCursorToggleAdapter` extends `CheckBox` and emits `toggled_by_player(player_id, pressed, cursor)`.
+- `DualCursorSliderAdapter` extends `HSlider` and emits `value_changed_by_player(player_id, value, cursor)`.
+- `DualCursorVerticalSliderAdapter` extends `VSlider` and emits `value_changed_by_player(player_id, value, cursor)`.
+- `DualCursorSpinBoxAdapter` extends `SpinBox` and emits `value_changed_by_player(player_id, value, cursor)`.
+- `DualCursorOptionAdapter` extends `OptionButton` and emits `option_selected_by_player(player_id, index, cursor)`.
+- `DualCursorTabAdapter` extends `TabContainer` and emits `tab_changed_by_player(player_id, tab_index, cursor)`.
+
+Adapters export `owner_player_id`, `interaction_enabled`, and `hit_priority`. Slider, spin box, option, and tab adapters consume compatible directional navigation while selected inside a navigation panel. Horizontal adapters consume left/right only, leaving up/down for list navigation.
+
 ## Panel Builder
 
 The editor dock can configure a selected `Control` as a list or grid navigation panel. It auto-detects child `BaseButton` controls as `navigation_targets`, applies one of the four access presets, sets theme preset selection colors, adds a lightweight two-player cursor runtime when needed, persists default controller actions, and validates the selected panel. It does not overwrite unrelated custom scripts.
 
 The generated `DualCursorRuntime` contains `DualCursorManager`, an invisible `CursorTravelRegion`, and two `DualCursor` nodes. It is safe to keep in game scenes and customize later.
 
-The dock can also apply two-controller profiles, apply theme presets, add or toggle `DualCursorDebugOverlay`, and validate unreachable private/shared navigation panels.
+The dock can also open the all-example-panels demo, apply two-controller profiles, apply theme presets, add or toggle `DualCursorDebugOverlay`, add or toggle `DualCursorEventMonitor`, edit common target metadata, generate wiring snippets for selected nodes, and validate unreachable private/shared navigation panels.
